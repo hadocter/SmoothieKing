@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Smoothy King"
+version = "1.0.0"
+id = "artifacts/smoothy-king"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24719
+
+[services.development]
+run = "pnpm --filter @workspace/smoothy-king run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/smoothy-king", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/smoothy-king/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24719"
+BASE_PATH = "/"

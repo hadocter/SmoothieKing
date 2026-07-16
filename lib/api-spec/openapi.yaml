@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Smoothy King API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: recipes
+    description: Recipe operations
+  - name: ingredients
+    description: Ingredient operations
+  - name: favorites
+    description: Favorite recipe operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +29,147 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /recipes:
+    get:
+      operationId: listRecipes
+      tags: [recipes]
+      summary: List all recipes
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: benefit
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of recipes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipe"
+
+  /recipes/{id}:
+    get:
+      operationId: getRecipe
+      tags: [recipes]
+      summary: Get a single recipe by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recipe found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "404":
+          description: Not found
+
+  /recipes/featured:
+    get:
+      operationId: getFeaturedRecipes
+      tags: [recipes]
+      summary: Get featured/hero recipes for the homepage
+      responses:
+        "200":
+          description: Featured recipes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipe"
+
+  /recipes/by-benefit:
+    get:
+      operationId: getRecipesByBenefit
+      tags: [recipes]
+      summary: Get recipes grouped by skin/health benefit
+      responses:
+        "200":
+          description: Recipes grouped by benefit
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BenefitGroup"
+
+  /ingredients:
+    get:
+      operationId: listIngredients
+      tags: [ingredients]
+      summary: List all ingredients with their skin/health benefits
+      responses:
+        "200":
+          description: List of ingredients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ingredient"
+
+  /favorites:
+    get:
+      operationId: listFavorites
+      tags: [favorites]
+      summary: List all favorited recipe IDs
+      responses:
+        "200":
+          description: Favorited recipe IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+    post:
+      operationId: addFavorite
+      tags: [favorites]
+      summary: Add a recipe to favorites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FavoriteInput"
+      responses:
+        "201":
+          description: Added
+
+  /favorites/{recipeId}:
+    delete:
+      operationId: removeFavorite
+      tags: [favorites]
+      summary: Remove a recipe from favorites
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +180,120 @@ components:
       required:
         - status
 
+    Recipe:
+      type: object
+      required: [id, name, slug, category, tagline, prepTimeMinutes, servings, benefits, ingredients, steps, imageUrl, isFeatured]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+          description: "smoothie | shaker | meal"
+        tagline:
+          type: string
+          description: "Short poetic descriptor (e.g. 'The Glow Ritual')"
+        description:
+          type: ["string", "null"]
+        prepTimeMinutes:
+          type: integer
+        servings:
+          type: integer
+        calories:
+          type: ["integer", "null"]
+        protein:
+          type: ["number", "null"]
+        benefits:
+          type: array
+          items:
+            type: string
+          description: "e.g. ['glowy-skin', 'hydration', 'anti-inflammatory']"
+        skinBenefitScore:
+          type: ["integer", "null"]
+          description: "1-10 skin benefit rating inspired by K-beauty principles"
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeIngredient"
+        steps:
+          type: array
+          items:
+            type: string
+        imageUrl:
+          type: string
+        isFeatured:
+          type: boolean
+        difficulty:
+          type: ["string", "null"]
+          description: "easy | medium | advanced"
+        tags:
+          type: array
+          items:
+            type: string
+
+    RecipeIngredient:
+      type: object
+      required: [name, amount, unit]
+      properties:
+        name:
+          type: string
+        amount:
+          type: string
+        unit:
+          type: string
+        benefit:
+          type: ["string", "null"]
+          description: "Primary skin/health benefit of this ingredient"
+
+    Ingredient:
+      type: object
+      required: [id, name, category, benefits, description]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          description: "fruit | vegetable | protein | adaptogen | superfood | fat | liquid"
+        benefits:
+          type: array
+          items:
+            type: string
+        skinBenefitKey:
+          type: ["string", "null"]
+          description: "Main K-beauty inspired skin benefit"
+        description:
+          type: string
+        koreanName:
+          type: ["string", "null"]
+          description: "Korean name or beauty term if applicable"
+        nutrientHighlights:
+          type: array
+          items:
+            type: string
+
+    BenefitGroup:
+      type: object
+      required: [benefit, label, description, recipes]
+      properties:
+        benefit:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        recipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recipe"
+
+    FavoriteInput:
+      type: object
+      required: [recipeId]
+      properties:
+        recipeId:
+          type: integer
