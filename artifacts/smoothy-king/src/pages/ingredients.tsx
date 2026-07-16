@@ -1,77 +1,91 @@
-import { AppLayout } from "@/components/layout/AppLayout";
-import { IngredientCard } from "@/components/ui/ingredient-card";
 import { useListIngredients } from "@workspace/api-client-react";
-import { motion } from "framer-motion";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { GOALS, GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sparkles, Info } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
 
 export default function Ingredients() {
   const { data: ingredients, isLoading } = useListIngredients();
   const [search, setSearch] = useState("");
 
-  const filteredIngredients = ingredients?.filter(ing => 
-    ing.name.toLowerCase().includes(search.toLowerCase()) || 
-    ing.category.toLowerCase().includes(search.toLowerCase()) ||
-    ing.benefits.some(b => b.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = useMemo(() => {
+    if (!ingredients) return [];
+    if (!search) return ingredients;
+    const q = search.toLowerCase();
+    return ingredients.filter(i => 
+      i.name.toLowerCase().includes(q) || 
+      i.category.toLowerCase().includes(q) ||
+      i.benefits.some(b => b.toLowerCase().includes(q))
+    );
+  }, [ingredients, search]);
 
   return (
-    <AppLayout>
-      <div className="max-w-7xl mx-auto px-6 py-12 md:py-20">
-        <header className="mb-16 max-w-2xl mx-auto text-center">
-          <motion.h1 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-4xl md:text-6xl font-serif text-foreground mb-6"
-          >
-            Ingredient Glossary
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-muted-foreground font-sans text-sm md:text-base leading-relaxed mb-8"
-          >
-            An apothecary-style library of nature's most potent compounds. Understand exactly what you're putting into your body and onto your skin.
-          </motion.p>
+    <div className="min-h-screen bg-background pt-12 pb-24">
+      <div className="container mx-auto px-4">
+        
+        <div className="max-w-4xl mx-auto mb-16 text-center">
+          <h1 className="font-serif text-5xl font-medium mb-6">The Glossary</h1>
+          <p className="text-muted-foreground text-lg mb-8 font-sans">
+            Every ingredient in the Smoothy King lab is chosen with purpose. Explore our functional library.
+          </p>
+          <Input 
+            placeholder="Search ingredients, categories, or benefits..." 
+            className="h-14 rounded-full text-center text-lg max-w-xl mx-auto bg-card shadow-sm"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative max-w-md mx-auto"
-          >
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input 
-              type="text" 
-              placeholder="Search ingredients, benefits..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-card border border-border focus:border-primary focus:ring-1 focus:ring-primary rounded-full text-sm font-sans outline-none transition-all"
-            />
-          </motion.div>
-        </header>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {isLoading ? (
+            Array.from({ length: 12 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-3xl" />
+            ))
+          ) : filtered.length === 0 ? (
+            <div className="col-span-full text-center py-20 text-muted-foreground">
+              <p className="font-serif text-2xl">No ingredients found.</p>
+            </div>
+          ) : (
+            filtered.map((ing) => (
+              <div key={ing.id} className="bg-card rounded-3xl p-6 border shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Sparkles className="w-24 h-24" />
+                </div>
+                
+                <div className="relative z-10">
+                  <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2 block">
+                    {ing.category}
+                  </span>
+                  <h3 className="font-serif text-3xl font-medium mb-1">{ing.name}</h3>
+                  {ing.koreanName && (
+                    <div className="text-sm font-medium text-primary mb-4">{ing.koreanName}</div>
+                  )}
+                  
+                  <p className="text-muted-foreground text-sm mb-6 line-clamp-3">
+                    {ing.description}
+                  </p>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
-            ))}
-          </div>
-        ) : filteredIngredients?.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-border rounded-lg">
-            <p className="font-serif text-xl text-foreground mb-2">No ingredients found</p>
-            <p className="text-sm font-sans text-muted-foreground">Try a different search term.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredIngredients?.map((ing, i) => (
-              <IngredientCard key={ing.id} ingredient={ing} index={i} />
-            ))}
-          </div>
-        )}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-xs uppercase font-bold text-muted-foreground mb-2 flex items-center gap-1">
+                        <Info className="w-3 h-3" /> Core Benefits
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ing.benefits.map((b, i) => (
+                          <span key={i} className={`text-xs px-2 py-1 rounded-md font-bold ${GOAL_COLORS[b] || 'bg-muted text-muted-foreground'}`}>
+                            {GOAL_LABELS[b] || b}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
-    </AppLayout>
+    </div>
   );
 }

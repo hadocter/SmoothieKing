@@ -21,10 +21,15 @@ import type {
 
 import type {
   BenefitGroup,
+  CommunityStats,
+  Creation,
+  CreationInput,
   FavoriteInput,
   HealthStatus,
   Ingredient,
+  ListCreationsParams,
   ListRecipesParams,
+  Plan,
   Recipe
 } from './api.schemas';
 
@@ -742,4 +747,455 @@ export const useRemoveFavorite = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRemoveFavoriteMutationOptions(options));
     }
+
+export const getListCreationsUrl = (params?: ListCreationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/creations?${stringifiedParams}` : `/api/creations`
+}
+
+/**
+ * @summary List community smoothie creations
+ */
+export const listCreations = async (params?: ListCreationsParams, options?: RequestInit): Promise<Creation[]> => {
+
+  return customFetch<Creation[]>(getListCreationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCreationsQueryKey = (params?: ListCreationsParams,) => {
+    return [
+    `/api/creations`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCreationsQueryOptions = <TData = Awaited<ReturnType<typeof listCreations>>, TError = ErrorType<unknown>>(params?: ListCreationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCreations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCreationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCreations>>> = ({ signal }) => listCreations(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCreations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCreationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCreations>>>
+export type ListCreationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List community smoothie creations
+ */
+
+export function useListCreations<TData = Awaited<ReturnType<typeof listCreations>>, TError = ErrorType<unknown>>(
+ params?: ListCreationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCreations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCreationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCreationUrl = () => {
+
+
+
+
+  return `/api/creations`
+}
+
+/**
+ * @summary Publish a custom smoothie creation
+ */
+export const createCreation = async (creationInput: CreationInput, options?: RequestInit): Promise<Creation> => {
+
+  return customFetch<Creation>(getCreateCreationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(creationInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCreationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCreation>>, TError,{data: BodyType<CreationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCreation>>, TError,{data: BodyType<CreationInput>}, TContext> => {
+
+const mutationKey = ['createCreation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCreation>>, {data: BodyType<CreationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCreation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCreationMutationResult = NonNullable<Awaited<ReturnType<typeof createCreation>>>
+    export type CreateCreationMutationBody = BodyType<CreationInput>
+    export type CreateCreationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Publish a custom smoothie creation
+ */
+export const useCreateCreation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCreation>>, TError,{data: BodyType<CreationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCreation>>,
+        TError,
+        {data: BodyType<CreationInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCreationMutationOptions(options));
+    }
+
+export const getLikeCreationUrl = (id: number,) => {
+
+
+
+
+  return `/api/creations/${id}/like`
+}
+
+/**
+ * @summary Like a community creation
+ */
+export const likeCreation = async (id: number, options?: RequestInit): Promise<Creation> => {
+
+  return customFetch<Creation>(getLikeCreationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLikeCreationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof likeCreation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof likeCreation>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['likeCreation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof likeCreation>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  likeCreation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LikeCreationMutationResult = NonNullable<Awaited<ReturnType<typeof likeCreation>>>
+
+    export type LikeCreationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Like a community creation
+ */
+export const useLikeCreation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof likeCreation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof likeCreation>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getLikeCreationMutationOptions(options));
+    }
+
+export const getUnlikeCreationUrl = (id: number,) => {
+
+
+
+
+  return `/api/creations/${id}/like`
+}
+
+/**
+ * @summary Remove a like from a community creation
+ */
+export const unlikeCreation = async (id: number, options?: RequestInit): Promise<Creation> => {
+
+  return customFetch<Creation>(getUnlikeCreationUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnlikeCreationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlikeCreation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlikeCreation>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['unlikeCreation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlikeCreation>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unlikeCreation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlikeCreationMutationResult = NonNullable<Awaited<ReturnType<typeof unlikeCreation>>>
+
+    export type UnlikeCreationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a like from a community creation
+ */
+export const useUnlikeCreation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlikeCreation>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlikeCreation>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getUnlikeCreationMutationOptions(options));
+    }
+
+export const getListPlansUrl = () => {
+
+
+
+
+  return `/api/plans`
+}
+
+/**
+ * @summary List subscription plans
+ */
+export const listPlans = async ( options?: RequestInit): Promise<Plan[]> => {
+
+  return customFetch<Plan[]>(getListPlansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlansQueryKey = () => {
+    return [
+    `/api/plans`
+    ] as const;
+    }
+
+
+export const getListPlansQueryOptions = <TData = Awaited<ReturnType<typeof listPlans>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlans>>> = ({ signal }) => listPlans({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listPlans>>>
+export type ListPlansQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List subscription plans
+ */
+
+export function useListPlans<TData = Awaited<ReturnType<typeof listPlans>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCommunityStatsUrl = () => {
+
+
+
+
+  return `/api/community/stats`
+}
+
+/**
+ * @summary Get community social-proof stats
+ */
+export const getCommunityStats = async ( options?: RequestInit): Promise<CommunityStats> => {
+
+  return customFetch<CommunityStats>(getGetCommunityStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCommunityStatsQueryKey = () => {
+    return [
+    `/api/community/stats`
+    ] as const;
+    }
+
+
+export const getGetCommunityStatsQueryOptions = <TData = Awaited<ReturnType<typeof getCommunityStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommunityStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCommunityStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCommunityStats>>> = ({ signal }) => getCommunityStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCommunityStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCommunityStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getCommunityStats>>>
+export type GetCommunityStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get community social-proof stats
+ */
+
+export function useGetCommunityStats<TData = Awaited<ReturnType<typeof getCommunityStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommunityStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCommunityStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

@@ -197,3 +197,145 @@ export const RemoveFavoriteParams = zod.object({
 export const RemoveFavoriteResponse = zod.void()
 
 
+/**
+ * @summary List community smoothie creations
+ */
+export const ListCreationsQueryParams = zod.object({
+  "sort": zod.coerce.string().optional(),
+  "goal": zod.coerce.string().optional()
+})
+
+export const ListCreationsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "authorName": zod.string(),
+  "authorInitials": zod.string().nullish(),
+  "goal": zod.string().describe('The benefit goal this creation serves (e.g. glowy-skin)'),
+  "story": zod.string().nullish().describe('Author\'s note about why they built this blend'),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "amount": zod.string(),
+  "unit": zod.string(),
+  "benefit": zod.string().nullish().describe('Primary skin\/health benefit of this ingredient')
+})),
+  "likes": zod.number(),
+  "colorHex": zod.string().nullish().describe('The blend\'s signature color for UI display'),
+  "createdAt": zod.string()
+})
+export const ListCreationsResponse = zod.array(ListCreationsResponseItem)
+
+
+/**
+ * @summary Publish a custom smoothie creation
+ */
+export const CreateCreationBody = zod.object({
+  "name": zod.string(),
+  "authorName": zod.string(),
+  "goal": zod.string(),
+  "story": zod.string().optional(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "amount": zod.string(),
+  "unit": zod.string(),
+  "benefit": zod.string().nullish().describe('Primary skin\/health benefit of this ingredient')
+})),
+  "colorHex": zod.string().optional()
+})
+
+export const CreateCreationResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "authorName": zod.string(),
+  "authorInitials": zod.string().nullish(),
+  "goal": zod.string().describe('The benefit goal this creation serves (e.g. glowy-skin)'),
+  "story": zod.string().nullish().describe('Author\'s note about why they built this blend'),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "amount": zod.string(),
+  "unit": zod.string(),
+  "benefit": zod.string().nullish().describe('Primary skin\/health benefit of this ingredient')
+})),
+  "likes": zod.number(),
+  "colorHex": zod.string().nullish().describe('The blend\'s signature color for UI display'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Like a community creation
+ */
+export const LikeCreationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const LikeCreationResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "authorName": zod.string(),
+  "authorInitials": zod.string().nullish(),
+  "goal": zod.string().describe('The benefit goal this creation serves (e.g. glowy-skin)'),
+  "story": zod.string().nullish().describe('Author\'s note about why they built this blend'),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "amount": zod.string(),
+  "unit": zod.string(),
+  "benefit": zod.string().nullish().describe('Primary skin\/health benefit of this ingredient')
+})),
+  "likes": zod.number(),
+  "colorHex": zod.string().nullish().describe('The blend\'s signature color for UI display'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a like from a community creation
+ */
+export const UnlikeCreationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UnlikeCreationResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "authorName": zod.string(),
+  "authorInitials": zod.string().nullish(),
+  "goal": zod.string().describe('The benefit goal this creation serves (e.g. glowy-skin)'),
+  "story": zod.string().nullish().describe('Author\'s note about why they built this blend'),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "amount": zod.string(),
+  "unit": zod.string(),
+  "benefit": zod.string().nullish().describe('Primary skin\/health benefit of this ingredient')
+})),
+  "likes": zod.number(),
+  "colorHex": zod.string().nullish().describe('The blend\'s signature color for UI display'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List subscription plans
+ */
+export const ListPlansResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "tagline": zod.string(),
+  "pricePerMonth": zod.number(),
+  "features": zod.array(zod.string()),
+  "isPopular": zod.boolean(),
+  "accentHex": zod.string().nullish()
+})
+export const ListPlansResponse = zod.array(ListPlansResponseItem)
+
+
+/**
+ * @summary Get community social-proof stats
+ */
+export const GetCommunityStatsResponse = zod.object({
+  "members": zod.number(),
+  "creationsThisWeek": zod.number(),
+  "ritualsCompleted": zod.number(),
+  "topGoal": zod.string()
+})
+
+

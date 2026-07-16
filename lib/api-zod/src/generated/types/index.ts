@@ -7,9 +7,14 @@
  */
 
 export * from './benefitGroup';
+export * from './communityStats';
+export * from './creation';
+export * from './creationInput';
 export * from './favoriteInput';
 export * from './healthStatus';
 export * from './ingredient';
+export * from './listCreationsParams';
 export * from './listRecipesParams';
+export * from './plan';
 export * from './recipe';
 export * from './recipeIngredient';

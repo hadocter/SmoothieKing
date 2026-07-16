@@ -55,7 +55,7 @@ router.get("/recipes/by-benefit", async (_req, res): Promise<void> => {
       label: "Sun Ritual",
       description: "Lycopene, beta-carotene, and antioxidants that work with your skin's natural UV defense systems.",
     },
-    "protein": {
+    "protein-power": {
       label: "Protein & Power",
       description: "High-performance shakers engineered for muscle recovery and sustained energy — no compromise on taste.",
     },
@@ -63,7 +63,7 @@ router.get("/recipes/by-benefit", async (_req, res): Promise<void> => {
       label: "Anti-Inflammatory",
       description: "Turmeric, ginger, and adaptogen blends that calm the body and reduce oxidative stress.",
     },
-    "detox": {
+    "detox-clarity": {
       label: "Detox & Clarity",
       description: "Chlorophyll-dense, liver-supportive combinations that reset the system and sharpen the mind.",
     },

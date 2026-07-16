@@ -1,191 +1,190 @@
-import { AppLayout } from "@/components/layout/AppLayout";
-import { useGetRecipe, useListFavorites, useAddFavorite, useRemoveFavorite, getGetRecipeQueryKey } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
-import { Heart, Clock, Droplets, Flame, ChevronLeft, Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { useRoute, Link } from "wouter";
+import { useGetRecipe, useListFavorites, useAddFavorite, useRemoveFavorite } from "@workspace/api-client-react";
+import { Heart, Clock, Users, Flame, ArrowLeft, Blend, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
 import { useQueryClient } from "@tanstack/react-query";
-import placeholderImg from "@assets/generated_images/recipe-rose.jpg";
-import { cn } from "@/lib/utils";
+import { getListFavoritesQueryKey } from "@workspace/api-client-react";
 
 export default function RecipeDetail() {
-  const { id } = useParams<{ id: string }>();
-  const recipeId = Number(id);
+  const [, params] = useRoute("/recipes/:id");
+  const id = params?.id ? parseInt(params.id, 10) : 0;
+  
+  const { data: recipe, isLoading } = useGetRecipe(id);
+  const { data: favorites = [] } = useListFavorites();
+  const addFavorite = useAddFavorite();
+  const removeFavorite = useRemoveFavorite();
   const queryClient = useQueryClient();
 
-  const { data: recipe, isLoading } = useGetRecipe(recipeId, {
-    query: { enabled: !!recipeId, queryKey: getGetRecipeQueryKey(recipeId) }
-  });
-
-  const { data: favorites = [] } = useListFavorites();
-  const isFavorite = favorites.includes(recipeId);
-
-  const addFav = useAddFavorite();
-  const removeFav = useRemoveFavorite();
+  const isFav = favorites.includes(id);
 
   const toggleFavorite = () => {
-    if (isFavorite) {
-      removeFav.mutate({ recipeId }, {
-        onSuccess: () => {
-          queryClient.setQueryData(['/api/favorites'], (old: number[] = []) => old.filter(fid => fid !== recipeId));
-        }
+    if (isFav) {
+      removeFavorite.mutate({ recipeId: id }, {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListFavoritesQueryKey() })
       });
     } else {
-      addFav.mutate({ data: { recipeId } }, {
-        onSuccess: () => {
-          queryClient.setQueryData(['/api/favorites'], (old: number[] = []) => [...old, recipeId]);
-        }
+      addFavorite.mutate({ data: { recipeId: id } }, {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListFavoritesQueryKey() })
       });
     }
   };
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div className="container mx-auto px-4 py-12">
+        <Skeleton className="h-8 w-32 mb-8" />
+        <div className="grid md:grid-cols-2 gap-12">
+          <Skeleton className="aspect-square rounded-3xl" />
+          <div className="space-y-6">
+            <Skeleton className="h-16 w-3/4" />
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-32 w-full" />
+          </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   if (!recipe) {
     return (
-      <AppLayout>
-        <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-          <h1 className="font-serif text-4xl text-foreground mb-4">Ritual not found</h1>
-          <p className="text-muted-foreground font-sans mb-8">The recipe you're looking for doesn't exist.</p>
-          <Link href="/recipes" className="px-6 py-3 bg-primary text-primary-foreground text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors">
-            Return to Protocols
-          </Link>
-        </div>
-      </AppLayout>
+      <div className="container mx-auto px-4 py-32 text-center">
+        <h1 className="font-serif text-4xl mb-4">Recipe Not Found</h1>
+        <Link href="/recipes"><Button variant="outline">Back to Recipes</Button></Link>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <article className="max-w-7xl mx-auto px-6 py-12 md:py-16">
-        <Link href="/recipes" className="inline-flex items-center text-xs font-sans uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors mb-12">
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Rituals
+    <div className="bg-background pb-32">
+      {/* Top Navigation */}
+      <div className="container mx-auto px-4 py-6 flex items-center justify-between">
+        <Link href="/recipes" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-medium">
+          <ArrowLeft className="w-4 h-4" /> Back
         </Link>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24">
-          {/* Left Column - Image */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative"
+        <div className="flex gap-2">
+          <Link href={`/builder?recipe=${recipe.id}`}>
+            <Button variant="outline" className="rounded-full gap-2 hidden sm:flex">
+              <Blend className="w-4 h-4" /> Remix in Builder
+            </Button>
+          </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full bg-card shadow-sm border"
+            onClick={toggleFavorite}
           >
-            <div className="sticky top-28 aspect-[3/4] rounded-md overflow-hidden bg-muted">
+            <Heart className={`w-5 h-5 ${isFav ? 'fill-destructive text-destructive' : ''}`} />
+          </Button>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4">
+        <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-start">
+          
+          {/* Image Side */}
+          <div className="sticky top-24">
+            <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden shadow-2xl">
               <img 
-                src={recipe.imageUrl || placeholderImg} 
+                src={recipe.imageUrl || "https://images.unsplash.com/photo-1553530666-ba11a7dd0dc9?auto=format&fit=crop&q=80&w=1200"} 
                 alt={recipe.name} 
                 className="w-full h-full object-cover"
               />
-              {recipe.skinBenefitScore && (
-                <div className="absolute top-4 left-4 bg-background/90 backdrop-blur text-foreground text-xs px-4 py-2 rounded-full font-sans tracking-wider border border-border/50 shadow-sm">
-                  {recipe.skinBenefitScore}/10 Glow Factor
-                </div>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent mix-blend-multiply" />
             </div>
-          </motion.div>
+          </div>
 
-          {/* Right Column - Content */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-            className="flex flex-col"
-          >
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-sans tracking-[0.2em] uppercase text-accent">
-                  {recipe.category}
-                </span>
-                <button 
-                  onClick={toggleFavorite}
-                  disabled={addFav.isPending || removeFav.isPending}
-                  className="flex items-center gap-2 text-xs font-sans tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+          {/* Content Side */}
+          <div className="py-8">
+            <div className="flex flex-wrap gap-3 mb-6">
+              {recipe.benefits.map((benefit) => (
+                <span 
+                  key={benefit} 
+                  className={`text-sm font-bold px-4 py-1.5 rounded-full ${GOAL_COLORS[benefit] || 'bg-primary text-primary-foreground'}`}
                 >
-                  <Heart className={cn("w-5 h-5 transition-colors", isFavorite ? "fill-primary text-primary" : "")} />
-                  <span>{isFavorite ? "Saved" : "Save"}</span>
-                </button>
-              </div>
-              <h1 className="text-5xl md:text-6xl font-serif text-foreground mb-4 leading-tight">
-                {recipe.name}
-              </h1>
-              <p className="text-xl font-serif italic text-muted-foreground mb-6">
-                {recipe.tagline}
+                  {GOAL_LABELS[benefit] || benefit}
+                </span>
+              ))}
+            </div>
+
+            <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl font-medium mb-4 leading-[1.1]">{recipe.name}</h1>
+            <p className="text-xl md:text-2xl text-muted-foreground font-serif italic mb-8">{recipe.tagline}</p>
+            
+            {recipe.description && (
+              <p className="font-sans text-lg leading-relaxed mb-10 text-foreground/90">
+                {recipe.description}
               </p>
-              {recipe.description && (
-                <p className="text-sm font-sans leading-relaxed text-foreground/80">
-                  {recipe.description}
-                </p>
-              )}
-            </div>
+            )}
 
-            {/* Meta tags */}
-            <div className="flex flex-wrap gap-6 py-6 border-y border-border/50 mb-10">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs font-sans uppercase tracking-widest text-foreground">{recipe.prepTimeMinutes} mins</span>
+            <div className="grid grid-cols-3 gap-6 p-6 bg-card rounded-3xl border shadow-sm mb-12">
+              <div className="flex flex-col items-center text-center gap-1 border-r">
+                <Clock className="w-5 h-5 text-muted-foreground mb-1" />
+                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Time</span>
+                <span className="font-serif text-2xl font-medium">{recipe.prepTimeMinutes}m</span>
               </div>
-              {recipe.calories && (
-                <div className="flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs font-sans uppercase tracking-widest text-foreground">{recipe.calories} kcal</span>
-                </div>
-              )}
-              {recipe.protein && (
-                <div className="flex items-center gap-2">
-                  <Droplets className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs font-sans uppercase tracking-widest text-foreground">{recipe.protein}g protein</span>
-                </div>
-              )}
+              <div className="flex flex-col items-center text-center gap-1 border-r">
+                <Users className="w-5 h-5 text-muted-foreground mb-1" />
+                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Serves</span>
+                <span className="font-serif text-2xl font-medium">{recipe.servings}</span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-1">
+                <Flame className="w-5 h-5 text-muted-foreground mb-1" />
+                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Calories</span>
+                <span className="font-serif text-2xl font-medium">{recipe.calories || '--'}</span>
+              </div>
             </div>
 
-            {/* Ingredients */}
             <div className="mb-12">
-              <h2 className="text-2xl font-serif text-foreground mb-6">The Formulation</h2>
+              <h2 className="font-serif text-3xl font-medium mb-6">Functional Ingredients</h2>
               <ul className="space-y-4">
                 {recipe.ingredients.map((ing, i) => (
-                  <li key={i} className="flex flex-col sm:flex-row sm:items-baseline justify-between py-3 border-b border-border/30 last:border-0 group">
-                    <div className="flex items-baseline gap-2 mb-1 sm:mb-0">
-                      <span className="font-serif text-lg text-foreground group-hover:text-primary transition-colors">{ing.name}</span>
-                      <span className="text-xs font-sans text-muted-foreground">{ing.amount} {ing.unit}</span>
+                  <li key={i} className="flex justify-between items-center py-4 border-b group">
+                    <div>
+                      <div className="font-medium text-lg flex items-center gap-2">
+                        {ing.name}
+                        {ing.benefit && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md uppercase tracking-wider font-bold">
+                            {GOAL_LABELS[ing.benefit] || 'Functional'}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {ing.benefit && (
-                      <span className="text-[10px] uppercase tracking-widest bg-secondary/20 text-secondary-foreground/70 px-2 py-1 rounded-sm">
-                        {ing.benefit}
-                      </span>
-                    )}
+                    <div className="font-serif text-xl text-muted-foreground">
+                      {ing.amount} {ing.unit}
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Steps */}
             <div>
-              <h2 className="text-2xl font-serif text-foreground mb-6">The Protocol</h2>
-              <div className="space-y-6">
+              <h2 className="font-serif text-3xl font-medium mb-6">The Ritual</h2>
+              <ol className="space-y-6">
                 {recipe.steps.map((step, i) => (
-                  <div key={i} className="flex gap-4">
-                    <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-sans tracking-widest">
+                  <li key={i} className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-serif text-lg">
                       {i + 1}
                     </div>
-                    <p className="text-sm font-sans leading-relaxed text-foreground/90 pt-0.5">
-                      {step}
-                    </p>
-                  </div>
+                    <p className="text-lg pt-0.5 leading-relaxed">{step}</p>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </div>
 
-          </motion.div>
+            <div className="mt-16 bg-primary/5 rounded-3xl p-8 border border-primary/10 text-center sm:hidden">
+              <h3 className="font-serif text-2xl font-medium mb-2 text-primary">Inspired?</h3>
+              <p className="text-muted-foreground mb-6">Customize this recipe using the Builder.</p>
+              <Link href={`/builder?recipe=${recipe.id}`}>
+                <Button size="lg" className="w-full rounded-full gap-2">
+                  <Blend className="w-5 h-5" /> Remix in Builder
+                </Button>
+              </Link>
+            </div>
+
+          </div>
         </div>
-      </article>
-    </AppLayout>
+      </div>
+    </div>
   );
 }

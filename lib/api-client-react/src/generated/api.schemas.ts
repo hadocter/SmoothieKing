@@ -86,9 +86,67 @@ export interface FavoriteInput {
   recipeId: number;
 }
 
+export interface Creation {
+  id: number;
+  name: string;
+  authorName: string;
+  /** @nullable */
+  authorInitials?: string | null;
+  /** The benefit goal this creation serves (e.g. glowy-skin) */
+  goal: string;
+  /**
+     * Author's note about why they built this blend
+     * @nullable
+     */
+  story?: string | null;
+  ingredients: RecipeIngredient[];
+  likes: number;
+  /**
+     * The blend's signature color for UI display
+     * @nullable
+     */
+  colorHex?: string | null;
+  createdAt: string;
+}
+
+export interface CreationInput {
+  name: string;
+  authorName: string;
+  goal: string;
+  story?: string;
+  ingredients: RecipeIngredient[];
+  colorHex?: string;
+}
+
+export interface Plan {
+  id: number;
+  name: string;
+  tagline: string;
+  pricePerMonth: number;
+  features: string[];
+  isPopular: boolean;
+  /** @nullable */
+  accentHex?: string | null;
+}
+
+export interface CommunityStats {
+  members: number;
+  creationsThisWeek: number;
+  ritualsCompleted: number;
+  topGoal: string;
+}
+
 export type ListRecipesParams = {
 category?: string;
 benefit?: string;
 search?: string;
+};
+
+export type ListCreationsParams = {
+/**
+ * recent | popular
+ */
+sort?: string;
+goal?: string;
 };
 

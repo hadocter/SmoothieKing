@@ -16,6 +16,10 @@ tags:
     description: Ingredient operations
   - name: favorites
     description: Favorite recipe operations
+  - name: creations
+    description: Community smoothie creations
+  - name: membership
+    description: Subscription plans and community stats
 paths:
   /healthz:
     get:
@@ -170,6 +174,114 @@ paths:
         "204":
           description: Removed
 
+  /creations:
+    get:
+      operationId: listCreations
+      tags: [creations]
+      summary: List community smoothie creations
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            description: "recent | popular"
+        - name: goal
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Community creations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Creation"
+    post:
+      operationId: createCreation
+      tags: [creations]
+      summary: Publish a custom smoothie creation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Creation"
+
+  /creations/{id}/like:
+    post:
+      operationId: likeCreation
+      tags: [creations]
+      summary: Like a community creation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Liked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Creation"
+    delete:
+      operationId: unlikeCreation
+      tags: [creations]
+      summary: Remove a like from a community creation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unliked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Creation"
+
+  /plans:
+    get:
+      operationId: listPlans
+      tags: [membership]
+      summary: List subscription plans
+      responses:
+        "200":
+          description: Subscription plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+
+  /community/stats:
+    get:
+      operationId: getCommunityStats
+      tags: [membership]
+      summary: Get community social-proof stats
+      responses:
+        "200":
+          description: Community stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityStats"
+
 components:
   schemas:
     HealthStatus:
@@ -297,3 +409,86 @@ components:
       properties:
         recipeId:
           type: integer
+
+    Creation:
+      type: object
+      required: [id, name, authorName, goal, ingredients, likes, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        authorName:
+          type: string
+        authorInitials:
+          type: ["string", "null"]
+        goal:
+          type: string
+          description: "The benefit goal this creation serves (e.g. glowy-skin)"
+        story:
+          type: ["string", "null"]
+          description: "Author's note about why they built this blend"
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeIngredient"
+        likes:
+          type: integer
+        colorHex:
+          type: ["string", "null"]
+          description: "The blend's signature color for UI display"
+        createdAt:
+          type: string
+
+    CreationInput:
+      type: object
+      required: [name, authorName, goal, ingredients]
+      properties:
+        name:
+          type: string
+        authorName:
+          type: string
+        goal:
+          type: string
+        story:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeIngredient"
+        colorHex:
+          type: string
+
+    Plan:
+      type: object
+      required: [id, name, tagline, pricePerMonth, features, isPopular]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tagline:
+          type: string
+        pricePerMonth:
+          type: number
+        features:
+          type: array
+          items:
+            type: string
+        isPopular:
+          type: boolean
+        accentHex:
+          type: ["string", "null"]
+
+    CommunityStats:
+      type: object
+      required: [members, creationsThisWeek, ritualsCompleted, topGoal]
+      properties:
+        members:
+          type: integer
+        creationsThisWeek:
+          type: integer
+        ritualsCompleted:
+          type: integer
+        topGoal:
+          type: string

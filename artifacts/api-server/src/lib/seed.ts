@@ -1,4 +1,4 @@
-import { db, recipesTable, ingredientsTable } from "@workspace/db";
+import { db, recipesTable, ingredientsTable, creationsTable, plansTable } from "@workspace/db";
 import { logger } from "./logger";
 
 const ingredients = [
@@ -32,8 +32,8 @@ const ingredients = [
   {
     name: "Spirulina",
     category: "superfood",
-    benefits: ["detox", "anti-inflammatory", "protein"],
-    skinBenefitKey: "detox",
+    benefits: ["detox-clarity", "anti-inflammatory", "protein-power"],
+    skinBenefitKey: "detox-clarity",
     description: "Nature's most concentrated protein — 70% by weight. Spirulina's phycocyanin binds to toxins and carries them out of the body, leaving skin noticeably clearer within weeks.",
     koreanName: "스피루리나",
     nutrientHighlights: ["Phycocyanin", "Complete Protein", "Iron", "B12"],
@@ -41,7 +41,7 @@ const ingredients = [
   {
     name: "Collagen Peptides",
     category: "protein",
-    benefits: ["glowy-skin", "protein"],
+    benefits: ["glowy-skin", "protein-power"],
     skinBenefitKey: "collagen-synthesis",
     description: "Hydrolyzed marine collagen — the gold standard in K-beauty ingestible skincare. Clinical studies confirm significant improvement in skin elasticity and moisture retention after 8 weeks.",
     koreanName: "콜라겐 펩타이드",
@@ -59,7 +59,7 @@ const ingredients = [
   {
     name: "Ginger",
     category: "adaptogen",
-    benefits: ["anti-inflammatory", "detox"],
+    benefits: ["anti-inflammatory", "detox-clarity"],
     skinBenefitKey: "circulation-boost",
     description: "Gingerols and shogaols improve peripheral circulation, delivering oxygen and nutrients to the skin. A warming, activating ingredient — the K-beauty answer to sluggish dull skin.",
     koreanName: "생강",
@@ -77,7 +77,7 @@ const ingredients = [
   {
     name: "Whey Protein Isolate",
     category: "protein",
-    benefits: ["protein"],
+    benefits: ["protein-power"],
     skinBenefitKey: null,
     description: "Cold-processed whey isolate with 90%+ protein content. Fast-absorbing and leucine-rich for immediate muscle protein synthesis. The clean, no-filler standard for serious performance.",
     koreanName: null,
@@ -95,7 +95,7 @@ const ingredients = [
   {
     name: "Matcha",
     category: "adaptogen",
-    benefits: ["anti-inflammatory", "detox"],
+    benefits: ["anti-inflammatory", "detox-clarity"],
     skinBenefitKey: "catechin-protection",
     description: "EGCG catechins in ceremonial-grade matcha are the most potent antioxidants in the plant kingdom — neutralizing 100x more free radicals than Vitamin C. A ritual, not just a drink.",
     koreanName: "말차",
@@ -122,7 +122,7 @@ const ingredients = [
   {
     name: "Spinach",
     category: "vegetable",
-    benefits: ["detox", "anti-inflammatory"],
+    benefits: ["detox-clarity", "anti-inflammatory"],
     skinBenefitKey: "chlorophyll-detox",
     description: "Chlorophyll acts as a molecular mirror of hemoglobin, supporting oxygen-rich blood and efficient toxin removal. One of the few ingredients that simultaneously alkalizes, detoxes, and energizes.",
     koreanName: "시금치",
@@ -181,7 +181,7 @@ const recipes = [
     servings: 1,
     calories: 195,
     protein: 8,
-    benefits: ["detox", "anti-inflammatory"],
+    benefits: ["detox-clarity", "anti-inflammatory"],
     skinBenefitScore: 8,
     ingredients: [
       { name: "Spinach", amount: "2", unit: "cups", benefit: "Chlorophyll detox" },
@@ -212,7 +212,7 @@ const recipes = [
     servings: 1,
     calories: 420,
     protein: 42,
-    benefits: ["protein"],
+    benefits: ["protein-power"],
     skinBenefitScore: 5,
     ingredients: [
       { name: "Whey Protein Isolate", amount: "2", unit: "scoops", benefit: "Muscle protein synthesis" },
@@ -302,7 +302,7 @@ const recipes = [
     servings: 1,
     calories: 380,
     protein: 38,
-    benefits: ["protein", "anti-inflammatory"],
+    benefits: ["protein-power", "anti-inflammatory"],
     skinBenefitScore: 6,
     ingredients: [
       { name: "Whey Protein Isolate", amount: "1.5", unit: "scoops", benefit: "Muscle synthesis" },
@@ -385,6 +385,144 @@ const recipes = [
   },
 ];
 
+const plans = [
+  {
+    name: "The Ritualist",
+    tagline: "For the curious beginner ready to build intentionally.",
+    pricePerMonth: 12,
+    features: [
+      "Full recipe library access",
+      "Smoothie Builder with live benefit scoring",
+      "Save unlimited favorites",
+      "Publish 3 creations per month",
+      "Community wall access",
+    ],
+    isPopular: false,
+    accentHex: "#4fb286",
+  },
+  {
+    name: "The Alchemist",
+    tagline: "Our most loved plan — for daily blend builders.",
+    pricePerMonth: 24,
+    features: [
+      "Everything in The Ritualist",
+      "Unlimited creation publishing",
+      "Seasonal ingredient drops & limited recipes",
+      "Personalized weekly blend plan by goal",
+      "Early access to new benefit protocols",
+      "Member-only ingredient sourcing guide",
+    ],
+    isPopular: true,
+    accentHex: "#f4a259",
+  },
+  {
+    name: "The Founder's Circle",
+    tagline: "Concierge-level nutrition for the fully committed.",
+    pricePerMonth: 59,
+    features: [
+      "Everything in The Alchemist",
+      "Quarterly 1:1 session with our nutrition team",
+      "Custom benefit protocol built for your skin & goals",
+      "Ingredient box delivery discounts (Bay Area)",
+      "Vote on next month's featured rituals",
+      "Founding member badge on all your creations",
+    ],
+    isPopular: false,
+    accentHex: "#8e5572",
+  },
+];
+
+const creations = [
+  {
+    name: "Morning Glass Skin",
+    authorName: "Yuna Park",
+    authorInitials: "YP",
+    goal: "glowy-skin",
+    story: "I built this after my esthetician in Seoul told me to eat my skincare, not just apply it. Three weeks in and my coworkers keep asking what changed.",
+    ingredients: [
+      { name: "Dragon Fruit", amount: "1", unit: "cup", benefit: "Radiance boost" },
+      { name: "Collagen Peptides", amount: "1", unit: "scoop", benefit: "Elasticity" },
+      { name: "Mango", amount: "1/2", unit: "cup", benefit: "Vitamin C" },
+      { name: "Kefir", amount: "1/4", unit: "cup", benefit: "Gut-skin axis" },
+    ],
+    likes: 128,
+    colorHex: "#ff8fa3",
+  },
+  {
+    name: "Marathon Fuel v3",
+    authorName: "Diego Ramirez",
+    authorInitials: "DR",
+    goal: "protein-power",
+    story: "Third iteration. The avocado was the unlock — no more chalky protein texture. This got me through SF Marathon training.",
+    ingredients: [
+      { name: "Whey Protein Isolate", amount: "2", unit: "scoops", benefit: "42g protein" },
+      { name: "Avocado", amount: "1/4", unit: "whole", benefit: "Silky texture + fats" },
+      { name: "Blueberry", amount: "1/2", unit: "cup", benefit: "Recovery" },
+      { name: "Coconut Water", amount: "1", unit: "cup", benefit: "Electrolytes" },
+    ],
+    likes: 94,
+    colorHex: "#7b6d8d",
+  },
+  {
+    name: "Tahoe Sun Shield",
+    authorName: "Maren Olsen",
+    authorInitials: "MO",
+    goal: "sun-ritual",
+    story: "Ski patrol taught me SPF. Smoothy King taught me lycopene. I drink this every morning before the slopes now.",
+    ingredients: [
+      { name: "Watermelon", amount: "2", unit: "cups", benefit: "Citrulline hydration" },
+      { name: "Tomato", amount: "1", unit: "medium", benefit: "Lycopene UV defense" },
+      { name: "Ginger", amount: "1/2", unit: "inch", benefit: "Circulation" },
+    ],
+    likes: 76,
+    colorHex: "#f07167",
+  },
+  {
+    name: "The 3pm Reset",
+    authorName: "Priya Nair",
+    authorInitials: "PN",
+    goal: "detox-clarity",
+    story: "Replaced my afternoon espresso with this. The matcha gives calm focus and the chlorophyll makes me feel like I rebooted.",
+    ingredients: [
+      { name: "Spinach", amount: "2", unit: "cups", benefit: "Chlorophyll" },
+      { name: "Matcha", amount: "1", unit: "tsp", benefit: "L-theanine focus" },
+      { name: "Ginger", amount: "1", unit: "inch", benefit: "Digestion" },
+      { name: "Coconut Water", amount: "1", unit: "cup", benefit: "Hydration" },
+    ],
+    likes: 63,
+    colorHex: "#4fb286",
+  },
+  {
+    name: "Post-Surf Salve",
+    authorName: "Kai Nakamura",
+    authorInitials: "KN",
+    goal: "anti-inflammatory",
+    story: "Ocean Beach in January is brutal on the joints. Turmeric plus black pepper is the oldest trick in the book because it works.",
+    ingredients: [
+      { name: "Turmeric", amount: "1", unit: "tsp", benefit: "Curcumin" },
+      { name: "Mango", amount: "1", unit: "cup", benefit: "Vitamin C synergy" },
+      { name: "Avocado", amount: "1/4", unit: "whole", benefit: "Curcumin absorption" },
+      { name: "Ginger", amount: "1", unit: "inch", benefit: "Gingerols" },
+    ],
+    likes: 51,
+    colorHex: "#f4a259",
+  },
+  {
+    name: "Desert Hair Hydra",
+    authorName: "Amara Diallo",
+    authorInitials: "AD",
+    goal: "hydration",
+    story: "Burning Man dehydrated me for a week straight. Built this recovery blend when I got back and now it's my daily baseline.",
+    ingredients: [
+      { name: "Watermelon", amount: "1.5", unit: "cups", benefit: "92% water + citrulline" },
+      { name: "Coconut Water", amount: "1", unit: "cup", benefit: "Plasma electrolytes" },
+      { name: "Dragon Fruit", amount: "1/2", unit: "cup", benefit: "Skin moisture" },
+    ],
+    likes: 47,
+    colorHex: "#59c3c3",
+  },
+];
+
 export async function seed() {
   logger.info("Seeding database...");
 
@@ -401,6 +539,20 @@ export async function seed() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.insert(recipesTable).values(recipes as any);
     logger.info({ count: recipes.length }, "Seeded recipes");
+  }
+
+  // Seed plans
+  const existingPlans = await db.select().from(plansTable);
+  if (existingPlans.length === 0) {
+    await db.insert(plansTable).values(plans);
+    logger.info({ count: plans.length }, "Seeded plans");
+  }
+
+  // Seed community creations
+  const existingCreations = await db.select().from(creationsTable);
+  if (existingCreations.length === 0) {
+    await db.insert(creationsTable).values(creations);
+    logger.info({ count: creations.length }, "Seeded creations");
   }
 
   logger.info("Seeding complete.");
