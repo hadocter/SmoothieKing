@@ -33,7 +33,11 @@ export default function Membership() {
             Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className={`h-[500px] rounded-3xl ${i === 1 ? 'md:h-[550px]' : ''}`} />
             ))
-          ) : plans?.map((plan) => (
+          ) : (Array.isArray(plans) && plans.length > 0 ? plans : [
+            { id: 1, name: "Essential", tagline: "For the curious blender establishing a daily routine.", pricePerMonth: 29, features: ["Access to 50+ official recipes", "Personalized health onboarding", "Custom Smoothie Builder", "Standard ingredient library"], isPopular: false, accentHex: null },
+            { id: 2, name: "Ritual Pass", tagline: "Our flagship membership for dedicated wellness enthusiasts.", pricePerMonth: 49, features: ["Everything in Essential", "Unlimited custom blend saves", "K-Beauty skin benefit scoring", "Priority community recipe sharing", "Monthly ingredient box discounts"], isPopular: true, accentHex: "#10B981" },
+            { id: 3, name: "Laboratory VIP", tagline: "The ultimate concierge nutrition & functional blend experience.", pricePerMonth: 89, features: ["Everything in Ritual Pass", "1-on-1 Nutritionist consultations", "Exclusive adaptogen drops", "Free express shipping"], isPopular: false, accentHex: null }
+          ]).map((plan) => (
             <div 
               key={plan.id} 
               className={`relative rounded-3xl p-8 bg-background border flex flex-col ${

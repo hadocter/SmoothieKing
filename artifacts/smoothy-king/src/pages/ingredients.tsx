@@ -10,13 +10,12 @@ export default function Ingredients() {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
-    if (!ingredients) return [];
-    if (!search) return ingredients;
+    if (!Array.isArray(ingredients)) return [];
     const q = search.toLowerCase();
-    return ingredients.filter(i => 
+    return ingredients.filter((i: any) => 
       i.name.toLowerCase().includes(q) || 
       i.category.toLowerCase().includes(q) ||
-      i.benefits.some(b => b.toLowerCase().includes(q))
+      (i.benefits || []).some((b: string) => b.toLowerCase().includes(q))
     );
   }, [ingredients, search]);
 

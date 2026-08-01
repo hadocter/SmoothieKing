@@ -1,4 +1,4 @@
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { useGetRecipe, useListFavorites, useAddFavorite, useRemoveFavorite } from "@workspace/api-client-react";
 import { Heart, Clock, Users, Flame, ArrowLeft, Blend, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,20 +6,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListFavoritesQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RecipeDetail() {
   const [, params] = useRoute("/recipes/:id");
   const id = params?.id ? parseInt(params.id, 10) : 0;
-  
+
   const { data: recipe, isLoading } = useGetRecipe(id);
   const { data: favorites = [] } = useListFavorites();
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
   const queryClient = useQueryClient();
+  const { isLoggedIn } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const isFav = favorites.includes(id);
 
   const toggleFavorite = () => {
+    // Favorites are saved per account, so signed-out visitors are sent to log in
+    // instead of silently hitting a 401.
+    if (!isLoggedIn) {
+      toast({
+        title: "Log in to save recipes",
+        description: "Your saved rituals are tied to your account.",
+      });
+      setLocation("/login");
+      return;
+    }
+
     if (isFav) {
       removeFavorite.mutate({ recipeId: id }, {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: getListFavoritesQueryKey() })

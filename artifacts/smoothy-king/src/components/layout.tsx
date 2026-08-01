@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Droplet, Blend, Sparkles, Heart, Menu, Users, CreditCard, X } from "lucide-react";
+import { Droplet, Blend, Sparkles, Heart, Menu, Users, CreditCard, X, LogOut, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const { user, isLoggedIn, logout } = useAuth();
 
   const navItems = [
     { label: "Builder", path: "/builder", icon: Blend },
@@ -25,7 +27,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8 font-sans font-medium text-sm">
+          <nav className="hidden md:flex items-center gap-6 font-sans font-medium text-sm">
             {navItems.map((item) => (
               <Link 
                 key={item.path} 
@@ -45,6 +47,27 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <Heart className="h-5 w-5" />
               </Button>
             </Link>
+
+            {isLoggedIn ? (
+              <div className="flex items-center gap-3 border-l pl-6">
+                <Link href="/profile" className="flex items-center gap-1.5 text-foreground hover:text-primary font-medium">
+                  <UserCircle className="w-5 h-5 text-primary" />
+                  <span>{user?.nickname}</span>
+                </Link>
+                <Button variant="ghost" size="icon" onClick={logout} title="Log Out" className="text-muted-foreground hover:text-destructive">
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 border-l pl-6">
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" className="rounded-full">Log In</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button size="sm" className="rounded-full">Sign Up</Button>
+                </Link>
+              </div>
+            )}
           </nav>
 
           {/* Mobile Nav */}
@@ -62,6 +85,27 @@ export default function Layout({ children }: { children: ReactNode }) {
               </SheetTrigger>
               <SheetContent side="right" className="bg-background border-l-0 w-[300px] sm:w-[400px]">
                 <nav className="flex flex-col gap-6 mt-12">
+                  {isLoggedIn ? (
+                    <div className="flex items-center justify-between border-b pb-4 mb-2">
+                      <Link href="/profile" className="flex items-center gap-2 text-foreground hover:text-primary">
+                        <UserCircle className="w-6 h-6 text-primary" />
+                        <span className="font-semibold text-lg">{user?.nickname}</span>
+                      </Link>
+                      <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground hover:text-destructive">
+                        Log Out
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 border-b pb-4 mb-2">
+                      <Link href="/login">
+                        <Button variant="outline" className="w-full justify-start rounded-full">Log In</Button>
+                      </Link>
+                      <Link href="/signup">
+                        <Button className="w-full justify-start rounded-full">Sign Up</Button>
+                      </Link>
+                    </div>
+                  )}
+
                   {navItems.map((item) => (
                     <Link 
                       key={item.path} 

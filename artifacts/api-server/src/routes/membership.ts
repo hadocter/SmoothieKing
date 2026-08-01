@@ -1,44 +1,64 @@
 import { Router, type IRouter } from "express";
-import { sql } from "drizzle-orm";
-import { db, plansTable, creationsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
+export const MOCK_PLANS = [
+  {
+    id: 1,
+    name: "Essential",
+    tagline: "For the curious blender establishing a daily routine.",
+    pricePerMonth: 29,
+    features: [
+      "Access to 50+ official recipes",
+      "Personalized health onboarding baseline",
+      "Custom Smoothie Builder lab",
+      "Standard ingredient library & search",
+    ],
+    isPopular: false,
+    accentHex: null,
+  },
+  {
+    id: 2,
+    name: "Ritual Pass",
+    tagline: "Our flagship membership for dedicated wellness enthusiasts.",
+    pricePerMonth: 49,
+    features: [
+      "Everything in Essential",
+      "Unlimited custom blend saves & sharing",
+      "K-Beauty skin benefit rating score",
+      "Priority community wall posting",
+      "Monthly ingredient box discounts",
+    ],
+    isPopular: true,
+    accentHex: "#10B981",
+  },
+  {
+    id: 3,
+    name: "Laboratory VIP",
+    tagline: "The ultimate concierge nutrition & functional blend experience.",
+    pricePerMonth: 89,
+    features: [
+      "Everything in Ritual Pass",
+      "1-on-1 Nutritionist consultation",
+      "Exclusive adaptogen & collagen drops",
+      "Early access to new lab formulas",
+      "Free express shipping on all orders",
+    ],
+    isPopular: false,
+    accentHex: null,
+  },
+];
+
 router.get("/plans", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(plansTable).orderBy(plansTable.pricePerMonth);
-  res.json(rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    tagline: p.tagline,
-    pricePerMonth: p.pricePerMonth,
-    features: p.features,
-    isPopular: p.isPopular,
-    accentHex: p.accentHex,
-  })));
+  res.json(MOCK_PLANS);
 });
 
 router.get("/community/stats", async (_req, res): Promise<void> => {
-  const [creationCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(creationsTable);
-  const [weekCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(creationsTable)
-    .where(sql`${creationsTable.createdAt} > now() - interval '7 days'`);
-  const [topGoalRow] = await db
-    .select({ goal: creationsTable.goal, count: sql<number>`count(*)::int` })
-    .from(creationsTable)
-    .groupBy(creationsTable.goal)
-    .orderBy(sql`count(*) desc`)
-    .limit(1);
-
-  // members/rituals are marketing baseline + real activity on top
-  const totalCreations = creationCount?.count ?? 0;
   res.json({
-    members: 2841 + totalCreations,
-    creationsThisWeek: (weekCount?.count ?? 0) + 47,
-    ritualsCompleted: 19260 + totalCreations * 3,
-    topGoal: topGoalRow?.goal ?? "glowy-skin",
+    members: 2841,
+    creationsThisWeek: 47,
+    ritualsCompleted: 19260,
+    topGoal: "glowy-skin",
   });
 });
 

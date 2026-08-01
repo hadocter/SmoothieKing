@@ -3,3 +3,5 @@ export * from "./ingredients";
 export * from "./favorites";
 export * from "./creations";
 export * from "./plans";
+export * from "./users";
+export * from "./user-profiles";

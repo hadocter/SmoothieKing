@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: user
+    description: User profile and onboarding
   - name: recipes
     description: Recipe operations
   - name: ingredients
@@ -33,6 +37,120 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/signup:
+    post:
+      operationId: signup
+      tags: [auth]
+      summary: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Email already exists
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the currently authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPublic"
+        "401":
+          description: Not authenticated
+
+  /user/onboarding:
+    post:
+      operationId: submitOnboarding
+      tags: [user]
+      summary: Save onboarding profile data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingInput"
+      responses:
+        "200":
+          description: Onboarding saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          description: Not authenticated
+
+  /user/profile:
+    get:
+      operationId: getUserProfile
+      tags: [user]
+      summary: Get the current user's onboarding profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          description: Not authenticated
+        "404":
+          description: Profile not found
+    put:
+      operationId: updateUserProfile
+      tags: [user]
+      summary: Update the current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingInput"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          description: Not authenticated
 
   /recipes:
     get:
@@ -491,4 +609,129 @@ components:
         ritualsCompleted:
           type: integer
         topGoal:
+          type: string
+
+    SignupInput:
+      type: object
+      required: [email, password, nickname]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        nickname:
+          type: string
+          minLength: 1
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/UserPublic"
+        token:
+          type: string
+
+    UserPublic:
+      type: object
+      required: [id, email, nickname, createdAt]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        nickname:
+          type: string
+        createdAt:
+          type: string
+
+    OnboardingInput:
+      type: object
+      properties:
+        gender:
+          type: string
+          description: "male | female | other"
+        age:
+          type: integer
+        height:
+          type: number
+          description: "cm"
+        weight:
+          type: number
+          description: "kg"
+        activityLevel:
+          type: string
+          description: "sedentary | light | moderate | active | very_active"
+        allergies:
+          type: array
+          items:
+            type: string
+        dislikedIngredients:
+          type: array
+          items:
+            type: string
+        primaryGoal:
+          type: string
+          description: "glowy-skin | hydration | sun-ritual | protein-power | anti-inflammatory | detox-clarity"
+        secondaryGoals:
+          type: array
+          items:
+            type: string
+        tastePreference:
+          type: array
+          items:
+            type: string
+          description: "sweet | sour | nutty | fresh"
+
+    UserProfileResponse:
+      type: object
+      required: [id, userId]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        gender:
+          type: ["string", "null"]
+        age:
+          type: ["integer", "null"]
+        height:
+          type: ["number", "null"]
+        weight:
+          type: ["number", "null"]
+        activityLevel:
+          type: ["string", "null"]
+        allergies:
+          type: array
+          items:
+            type: string
+        dislikedIngredients:
+          type: array
+          items:
+            type: string
+        primaryGoal:
+          type: ["string", "null"]
+        secondaryGoals:
+          type: array
+          items:
+            type: string
+        tastePreference:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+        updatedAt:
           type: string

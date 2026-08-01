@@ -1,20 +1,22 @@
 import { useListFavorites, useListRecipes, useRemoveFavorite } from "@workspace/api-client-react";
-import { Heart, Trash2 } from "lucide-react";
+import { Heart, Trash2, UserCircle } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListFavoritesQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Favorites() {
   const { data: favoriteIds, isLoading: loadingFavs } = useListFavorites();
   const { data: allRecipes, isLoading: loadingRecipes } = useListRecipes();
   const removeFavorite = useRemoveFavorite();
   const queryClient = useQueryClient();
+  const { isLoggedIn, isLoading: loadingAuth } = useAuth();
 
   const isLoading = loadingFavs || loadingRecipes;
-  
+
   const favoriteRecipes = allRecipes?.filter(r => favoriteIds?.includes(r.id)) || [];
 
   const handleRemove = (e: React.MouseEvent, id: number) => {
@@ -23,6 +25,25 @@ export default function Favorites() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getListFavoritesQueryKey() })
     });
   };
+
+  // Saved recipes live on the account. Without this, signed-out visitors would
+  // see the "no rituals saved yet" empty state, which reads as data loss.
+  if (!loadingAuth && !isLoggedIn) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 text-center">
+        <div className="max-w-md bg-card p-8 rounded-3xl border shadow-sm">
+          <UserCircle className="w-16 h-16 text-primary mx-auto mb-4" />
+          <h2 className="font-serif text-3xl font-medium mb-3">Login Required</h2>
+          <p className="text-muted-foreground mb-6">
+            Log in to see the rituals you've saved to your collection.
+          </p>
+          <Link href="/login">
+            <Button size="lg" className="rounded-full px-8">Log In Now</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pt-12 pb-24">

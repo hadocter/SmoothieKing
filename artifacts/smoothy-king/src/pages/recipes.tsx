@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useListRecipes, useGetRecipesByBenefit, useListFavorites, useAddFavorite, useRemoveFavorite } from "@workspace/api-client-react";
 import { Search, Heart, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,23 +8,40 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListRecipesQueryKey, getListFavoritesQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Recipes() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
-  
-  const { data: recipes, isLoading } = useListRecipes({ 
+
+  const { data: recipes, isLoading } = useListRecipes({
     search: search.length > 2 ? search : undefined,
     category: category !== "all" ? category : undefined
   });
-  
+
   const { data: favorites = [] } = useListFavorites();
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
   const queryClient = useQueryClient();
+  const { isLoggedIn } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const toggleFavorite = (e: React.MouseEvent, id: number) => {
     e.preventDefault(); // Prevent link click
+
+    // Favorites are saved per account, so signed-out visitors are sent to log in
+    // instead of silently hitting a 401.
+    if (!isLoggedIn) {
+      toast({
+        title: "Log in to save recipes",
+        description: "Your saved rituals are tied to your account.",
+      });
+      setLocation("/login");
+      return;
+    }
+
     if (favorites.includes(id)) {
       removeFavorite.mutate({ recipeId: id }, {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: getListFavoritesQueryKey() })
@@ -91,12 +108,12 @@ export default function Recipes() {
             Array.from({ length: 8 }).map((_, i) => (
               <Skeleton key={i} className="aspect-[4/5] rounded-3xl" />
             ))
-          ) : recipes?.length === 0 ? (
+          ) : !Array.isArray(recipes) || recipes.length === 0 ? (
             <div className="col-span-full py-20 text-center text-muted-foreground">
               <p className="font-serif text-2xl">No recipes found matching your criteria.</p>
             </div>
           ) : (
-            recipes?.map(recipe => (
+            recipes.map((recipe: any) => (
               <Link key={recipe.id} href={`/recipes/${recipe.id}`} className="group block">
                 <div className="relative aspect-[4/5] rounded-3xl overflow-hidden mb-4 bg-muted shadow-sm group-hover:shadow-xl transition-all duration-500">
                   <img 
@@ -109,7 +126,7 @@ export default function Recipes() {
                   {/* Top Bar */}
                   <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                     <div className="flex gap-2 flex-wrap max-w-[70%]">
-                      {recipe.benefits.slice(0, 2).map((benefit) => (
+                      {(recipe.benefits || []).slice(0, 2).map((benefit: string) => (
                         <span 
                           key={benefit} 
                           className={`text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${GOAL_COLORS[benefit] || 'bg-white text-black'}`}
