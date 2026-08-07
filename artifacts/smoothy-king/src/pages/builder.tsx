@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, Dice5, Check } from "lucide-react";
 import { getActiveGoal, getGoalCatalog, type GoalCatalog, type GoalPeriod } from "@/features/goals";
 import { GoalBanner } from "@/features/goals/GoalBanner";
-import { AssistBox } from "@/features/elicitation";
+import { TodayBox } from "@/features/build/TodayBox";
 import {
   MAX_FROM_SHELF,
   TIME_CHOICES,
@@ -57,6 +57,18 @@ export default function Builder() {
 
   const [minutes, setMinutes] = useState<number>(5);
   const [subGoals, setSubGoals] = useState<string[]>([]);
+  /** Taste for today, overriding the profile's standing preference. */
+  const [tastes, setTastes] = useState<string[]>([]);
+
+  /**
+   * At most two extras.
+   *
+   * Sub-goals are meant to vary a drink, not redefine it — the main goal is
+   * worth three points to each sub-goal's one, so five of them outvote it and
+   * the drink stops being about what the user came here for. Two is enough to
+   * make a glass feel like today's without that happening.
+   */
+  const MAX_SUB_GOALS = 2;
   const [phase, setPhase] = useState<Phase>("ask");
   const [result, setResult] = useState<GenerateResult | null>(null);
   /** How many of the offered drinks came off the shelf rather than being built. */
@@ -157,7 +169,7 @@ export default function Builder() {
     try {
       const [matched, generated] = await Promise.all([
         freshOnly || !period ? Promise.resolve(null) : findMatches(period.goal, token).catch(() => null),
-        generateDrinks({ preset: presetForMinutes(minutes), subGoals }, token),
+        generateDrinks({ preset: presetForMinutes(minutes), subGoals, tastes }, token),
       ]);
 
       const shelf = (matched?.recipes ?? []).slice(0, MAX_FROM_SHELF);
@@ -362,19 +374,41 @@ export default function Builder() {
       <div className="mb-10">
         <h1 className="font-serif text-4xl font-medium mb-2">Anything else today?</h1>
         <p className="text-muted-foreground">
-          Optional. Your goal decides most of the glass — this nudges the rest of it.
+          Optional, and up to two. Your goal decides most of the glass — these nudge the rest.
         </p>
       </div>
 
       <div className="mb-8">
-        <AssistBox
-          step="goals"
-          placeholder="e.g. shoulders are wrecked from yesterday"
-          onAccept={(ids) =>
-            setSubGoals((prev) => [...new Set([...prev, ...ids.filter((i) => i !== period.goal)])])
-          }
+        <TodayBox
+          disabledIds={[...subGoals, ...tastes, `effort-${presetForMinutes(minutes)}`]}
+          onAccept={(axis, id) => {
+            if (axis === "goals") {
+              if (id === period.goal) return;
+              setSubGoals((prev) =>
+                prev.includes(id) || prev.length >= MAX_SUB_GOALS ? prev : [...prev, id],
+              );
+            } else if (axis === "taste") {
+              setTastes((prev) => (prev.includes(id) ? prev : [...prev, id]));
+            } else if (axis === "effort") {
+              // The effort ids map onto the same presets the time buttons pick,
+              // so "light one" and tapping 5 minutes are the same answer.
+              const minutesFor: Record<string, number> = {
+                "effort-quick": 3,
+                "effort-light": 5,
+                "effort-great": 8,
+                "effort-heavy": 15,
+              };
+              if (minutesFor[id]) setMinutes(minutesFor[id]);
+            }
+          }}
         />
       </div>
+
+      {tastes.length > 0 && (
+        <p className="text-sm text-muted-foreground mb-6">
+          Leaning {tastes.join(", ")} today.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2.5 mb-12">
         {available.map((g) => {
@@ -382,12 +416,15 @@ export default function Builder() {
           return (
             <button
               key={g.id}
+              disabled={!on && subGoals.length >= MAX_SUB_GOALS}
               onClick={() =>
-                setSubGoals((prev) => (on ? prev.filter((s) => s !== g.id) : [...prev, g.id]))
+                setSubGoals((prev) =>
+                  on ? prev.filter((s) => s !== g.id) : prev.length >= MAX_SUB_GOALS ? prev : [...prev, g.id],
+                )
               }
               aria-pressed={on}
               title={g.effect}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 inline-flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 inline-flex items-center gap-1.5 disabled:opacity-35 ${
                 on
                   ? `${GOAL_COLORS[g.id] ?? ""} border-primary/30 ring-1 ring-primary/20`
                   : "bg-card hover:bg-muted border-transparent"

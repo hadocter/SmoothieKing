@@ -72,6 +72,23 @@ export const PROPOSE_SCHEMA: Json = deepFreeze({
       description:
         "The part of their message no option can hold, in their own words. Empty if there is none.",
     },
+    occasion: {
+      type: "string",
+      description:
+        "The thing they are preparing for, if they named one — a wedding, a marathon, a holiday. " +
+        "Two or three words, lower case, in their own language. Empty when they named nothing; " +
+        "a goal is not an occasion, so do not turn 'I want better skin' into 'better skin'.",
+    },
+    timeframeWeeks: {
+      type: "string",
+      enum: ["4", "6", "8", "12", UNSPECIFIED],
+      description:
+        `How many weeks away it is, only if they said so out loud — "in six weeks", "by August", ` +
+        `"3주 안에". Round to the nearest of the allowed values. Use "${UNSPECIFIED}" when they did ` +
+        `not, which is most of the time. Do not infer a deadline from the kind of goal, from ` +
+        `urgency, or from what would be reasonable — the caller drops any timeframe whose words ` +
+        `are not in the message, so guessing only loses information.`,
+    },
   },
   required: ["stepKey", "optionIds", "confidence"],
   additionalProperties: false,

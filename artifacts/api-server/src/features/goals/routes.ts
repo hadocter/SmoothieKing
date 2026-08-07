@@ -97,9 +97,14 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
       ? body.narrative.trim().slice(0, 300)
       : null;
 
+  const occasion =
+    typeof body.occasion === "string" && body.occasion.trim()
+      ? body.occasion.trim().slice(0, 40)
+      : null;
+
   const [created] = await db
     .insert(goalPeriodsTable)
-    .values({ userId: req.user!.userId, goal: body.goal, weeks: body.weeks, narrative, active: true })
+    .values({ userId: req.user!.userId, goal: body.goal, weeks: body.weeks, narrative, occasion, active: true })
     .returning();
 
   // The profile keeps a `primaryGoal` column that several readers still use.

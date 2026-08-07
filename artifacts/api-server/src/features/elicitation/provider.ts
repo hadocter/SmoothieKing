@@ -108,15 +108,15 @@ export class GroqAssistProvider implements AssistProvider {
       choices?: { message?: { tool_calls?: { function?: { arguments?: string } }[] } }[];
     };
     const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (typeof args !== "string") return adaptPropose({}, stepKey);
+    if (typeof args !== "string") return adaptPropose({}, stepKey, userText);
 
     let raw: RawPropose;
     try {
       raw = JSON.parse(args) as RawPropose;
     } catch {
-      return adaptPropose({}, stepKey);
+      return adaptPropose({}, stepKey, userText);
     }
-    return adaptPropose(raw, stepKey);
+    return adaptPropose(raw, stepKey, userText);
   }
 }
 
@@ -155,10 +155,14 @@ export class KeywordAssistProvider implements AssistProvider {
     "detox-clarity": ["detox", "cleanse", "clarity", "reset"],
     "gut-health": ["gut", "digest", "bloat", "stomach", "bowel"],
     "energy-focus": ["energy", "focus", "tired", "concentrate", "slump", "crash", "alert"],
+    "effort-quick": ["quick", "no time", "rush", "hurry", "fast"],
+    "effort-light": ["light", "small", "not much", "just a"],
+    "effort-great": ["proper", "full", "balanced", "good one"],
+    "effort-heavy": ["big", "meal", "filling", "hungry", "replace"],
     sweet: ["sweet", "sugary"],
     sour: ["sour", "tart", "citrus", "lemon", "tangy"],
     nutty: ["nutty", "rich", "peanut", "chocolate"],
-    fresh: ["fresh", "herbal", "green", "light"],
+    fresh: ["fresh", "herbal", "green", "refreshing", "crisp", "clean"],
   };
 
   async propose(stepKey: string, userText: string): Promise<Proposal> {
@@ -182,6 +186,7 @@ export class KeywordAssistProvider implements AssistProvider {
         message: hits.length > 0 ? `Matched on what you wrote: ${hits.map((o) => o.label).join(", ")}.` : "",
       },
       stepKey,
+      userText,
     );
   }
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Check, Plus } from "lucide-react";
-import { proposeOptions, type AssistResponse, type AssistStep } from "./index";
+import { proposeOptions, type AssistExtras, type AssistResponse, type AssistStep } from "./index";
 
 /**
  * A second way to answer an onboarding step: say it in your own words.
@@ -34,7 +34,7 @@ interface Props {
    * screen does: the ids decide the category, and the sentence is what gets
    * shown back to the person afterwards instead of a taxonomy label.
    */
-  onAccept: (ids: string[], text: string) => void;
+  onAccept: (ids: string[], text: string, extras: AssistExtras) => void;
 }
 
 export function AssistBox({ step, placeholder, onAccept }: Props) {
@@ -63,7 +63,10 @@ export function AssistBox({ step, placeholder, onAccept }: Props) {
   function take(ids: string[]) {
     const fresh = ids.filter((id) => !taken.includes(id));
     if (fresh.length === 0) return;
-    onAccept(fresh, text.trim());
+    onAccept(fresh, text.trim(), {
+      occasion: result?.occasion ?? "",
+      timeframeWeeks: result?.timeframeWeeks ?? null,
+    });
     setTaken((prev) => [...prev, ...fresh]);
   }
 

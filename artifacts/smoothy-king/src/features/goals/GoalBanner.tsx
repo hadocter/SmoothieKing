@@ -4,17 +4,23 @@ import type { GoalPeriod } from "./index";
 /**
  * The goal, shown back to the person whose goal it is.
  *
- * Their own sentence leads when there is one, and the category sits beside it
- * as a quiet label. The eight goals are a vocabulary the system computes with;
- * "I keep crashing at 3pm" is what the person came here about, and a screen
- * that greets them with "Energy & Focus" is addressing them in a taxonomy they
- * never used. Showing both is honest in a way that showing only their words
- * would not be — the category is what actually drives the build, so hiding it
- * would misrepresent what the app is doing.
+ * Three registers, best first.
  *
- * With no narrative, the category leads on its own. Nothing is invented to
- * fill the gap: a sentence put in someone's mouth reads far worse than no
- * sentence.
+ * When they named an occasion, it becomes a sentence: "For your wedding — 32
+ * days to go". That is the app having listened. Echoing their whole input back
+ * verbatim is the opposite: a form repeating what was typed into it, which is
+ * what "I have a marriage in 6 week, so i have to make fit body and glow skin"
+ * looked like sitting in quotation marks under a heading.
+ *
+ * With a narrative but no occasion, their sentence leads and the category sits
+ * beside it as a quiet label. The eight goals are a vocabulary the system
+ * computes with; greeting someone with "Energy & Focus" addresses them in a
+ * taxonomy they never used. Showing both is more honest than showing only
+ * their words — the category is what drives the build, so hiding it would
+ * misrepresent what the app does.
+ *
+ * With neither, the category leads alone. Nothing is invented to fill the gap:
+ * a sentence put in someone's mouth reads far worse than no sentence.
  *
  * One component, used on the goal screen and at the top of the builder, so the
  * two cannot end up describing the same commitment differently.
@@ -41,7 +47,22 @@ export function GoalBanner({
           style={{ background: GOAL_HEX[period.goal] ?? "#ccc" }}
         />
         <div className="flex-1 min-w-0">
-          {period.narrative ? (
+          {period.occasion ? (
+            <>
+              <p className={`font-serif font-medium leading-snug ${large ? "text-2xl mb-2" : "text-lg mb-1.5"}`}>
+                For your {period.occasion}
+                {period.daysRemaining > 0 && (
+                  <span className="text-muted-foreground font-normal">
+                    {" "}— {period.daysRemaining} {period.daysRemaining === 1 ? "day" : "days"} to go
+                  </span>
+                )}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Working on <span className="font-medium text-foreground">{label}</span>
+                {period.daysRemaining === 0 && " · the time's up, but the drinks carry on"}
+              </p>
+            </>
+          ) : period.narrative ? (
             <>
               <p
                 className={`font-serif font-medium leading-snug ${large ? "text-2xl mb-2" : "text-lg mb-1.5"}`}

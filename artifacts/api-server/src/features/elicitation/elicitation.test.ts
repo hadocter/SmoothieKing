@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adaptPropose } from "./adapt.ts";
+import { adaptPropose, mentionsTimeframe } from "./adapt.ts";
 import { KeywordAssistProvider } from "./provider.ts";
 import { PROPOSE_SCHEMA } from "./schema.ts";
 import { STEPS, belongsToStep, ALL_OPTION_IDS, UNSPECIFIED, OUT_OF_DOMAIN } from "./steps.ts";
@@ -149,4 +149,89 @@ test("the fallback abstains rather than guessing", async () => {
 test("the fallback obeys single-choice too, through the same adapter", async () => {
   const p = await new KeywordAssistProvider().propose("activity", "I go to the gym and I also run every day");
   assert.equal(p.proposed.length, 1);
+});
+
+/* ---- occasion and timeframe ---- */
+
+test("a stated timeframe is kept", () => {
+  const p = adaptPropose(
+    { stepKey: "goals", optionIds: ["glowy-skin"], confidence: "high", occasion: "wedding", timeframeWeeks: "6" },
+    "goals",
+    "I have a wedding in 6 weeks so I need to glow",
+  );
+  assert.equal(p.timeframeWeeks, 6);
+  assert.equal(p.occasion, "wedding");
+});
+
+test("a timeframe the message never mentioned is dropped", () => {
+  // The failure this guard exists for: a confident "6 weeks" invented from a
+  // sentence with no period in it, then shown back to someone as their own
+  // deadline. Worse than having no deadline.
+  const p = adaptPropose(
+    { stepKey: "goals", optionIds: ["glowy-skin"], confidence: "high", timeframeWeeks: "6" },
+    "goals",
+    "I just want my skin to look better",
+  );
+  assert.equal(p.timeframeWeeks, null);
+});
+
+test("a timeframe outside the offered lengths is dropped rather than rounded", () => {
+  const p = adaptPropose(
+    { stepKey: "goals", optionIds: ["glowy-skin"], timeframeWeeks: "5" },
+    "goals",
+    "in 5 weeks",
+  );
+  assert.equal(p.timeframeWeeks, null);
+});
+
+test("Korean timeframes count as stated", () => {
+  const p = adaptPropose(
+    { stepKey: "goals", optionIds: ["gut-health"], timeframeWeeks: "8" },
+    "goals",
+    "두 달 안에 속이 편해졌으면",
+  );
+  assert.equal(p.timeframeWeeks, 8);
+});
+
+test("no occasion means no occasion, not a guess", () => {
+  const p = adaptPropose({ stepKey: "goals", optionIds: ["glowy-skin"], confidence: "high" }, "goals", "better skin");
+  assert.equal(p.occasion, "");
+});
+
+test("an occasion is trimmed to a phrase, not a sentence", () => {
+  const p = adaptPropose(
+    { stepKey: "goals", optionIds: ["glowy-skin"], occasion: "X".repeat(200) },
+    "goals",
+    "in 4 weeks",
+  );
+  assert.ok(p.occasion.length <= 40);
+});
+
+test("mentionsTimeframe accepts what people actually write", () => {
+  for (const yes of ["in 6 weeks", "by August", "3주 안에", "before my wedding", "2 months", "next summer"]) {
+    assert.ok(mentionsTimeframe(yes), `missed: ${yes}`);
+  }
+  for (const no of ["I want better skin", "느낌이 안 좋아요", "help me glow"]) {
+    assert.ok(!mentionsTimeframe(no), `false positive: ${no}`);
+  }
+});
+
+/* ---- the effort axis ---- */
+
+test("effort ids belong only to the effort step", () => {
+  for (const id of ["effort-quick", "effort-light", "effort-great", "effort-heavy"]) {
+    assert.ok(belongsToStep("effort", id));
+    assert.ok(!belongsToStep("taste", id));
+    assert.ok(!belongsToStep("goals", id));
+  }
+});
+
+test("\"just refreshing, light one\" now lands somewhere", async () => {
+  // The sentence that came back as "nothing matched" — it is about taste and
+  // size, and there was no step being asked that could hold either.
+  const p = new KeywordAssistProvider();
+  const taste = await p.propose("taste", "just refreshing, light one");
+  const effort = await p.propose("effort", "just refreshing, light one");
+  assert.ok(taste.proposed.some((o) => o.id === "fresh"), "refreshing should read as fresh");
+  assert.ok(effort.proposed.some((o) => o.id.startsWith("effort-")), "light one should read as an effort");
 });

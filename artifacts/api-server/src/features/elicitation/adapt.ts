@@ -22,6 +22,8 @@ export interface RawPropose {
   confidence?: unknown;
   message?: unknown;
   unmappedText?: unknown;
+  occasion?: unknown;
+  timeframeWeeks?: unknown;
 }
 
 export interface Proposal {
@@ -40,6 +42,72 @@ export interface Proposal {
   outOfDomain: boolean;
   /** Their words for the part no option holds. Empty unless outOfDomain. */
   unmappedText: string;
+  /**
+   * What they are preparing for, if they named it — "a wedding", "a marathon".
+   *
+   * Distinct from the goal. The goal is what the drinks are built for; this is
+   * why, and it is the thing worth saying back to them. Empty when they named
+   * nothing, and nothing infers one.
+   */
+  occasion: string;
+  /**
+   * Weeks until it, if they said so out loud. Null otherwise.
+   *
+   * Null is the common and correct answer. See `mentionsTimeframe` for why it
+   * is checked against the message rather than trusted.
+   */
+  timeframeWeeks: number | null;
+}
+
+const ALLOWED_WEEKS = [4, 6, 8, 12];
+
+/**
+ * Words and digits that could be a stated timeframe.
+ *
+ * The model is asked not to invent a deadline and mostly does not, but "I want
+ * to feel better soon" is exactly the kind of sentence that produces a
+ * confident "6 weeks" from nowhere. A deadline nobody set, shown back to
+ * someone as their own, is worse than no deadline — so a timeframe survives
+ * only if the message plausibly contains one.
+ *
+ * Deliberately generous: it only has to be evidence that a period was
+ * mentioned, and a false positive here costs a wrong number the user can see
+ * and change on the same screen.
+ */
+/**
+ * Latin timeframe words, matched on word boundaries.
+ *
+ * Substring matching was the first attempt and it was wrong in a way worth
+ * keeping a note about: "in " matches inside "skin to", so "I just want my
+ * skin to look better" read as a stated deadline and kept whatever number the
+ * model had invented. Its own test caught it.
+ */
+const TIMEFRAME_WORDS =
+  /\b(weeks?|months?|days?|years?|wks?|summer|winter|spring|autumn|fall|by|before|until|deadline|within|in)\b/i;
+
+/**
+ * Korean has no word boundaries to anchor to, so these are plain substrings.
+ * They are distinctive enough not to appear inside unrelated words.
+ */
+const TIMEFRAME_KO = ["주", "개월", "달", "년", "일", "안에", "까지"];
+
+/**
+ * Whether the message plausibly named a period.
+ *
+ * The model is asked not to invent a deadline and mostly does not, but "I want
+ * to feel better soon" is exactly the kind of sentence that produces a
+ * confident "6 weeks" from nowhere. A deadline nobody set, shown back to
+ * someone as their own, is worse than no deadline — so a timeframe survives
+ * only if the message could have contained one.
+ *
+ * Generous by design: this only has to be evidence a period was mentioned, and
+ * a false positive costs a wrong number the user can see and change on the
+ * same screen.
+ */
+export function mentionsTimeframe(text: string): boolean {
+  if (/\d/.test(text)) return true;
+  if (TIMEFRAME_WORDS.test(text)) return true;
+  return TIMEFRAME_KO.some((w) => text.includes(w));
 }
 
 const CONFIDENCES = ["high", "medium", "low"] as const;
@@ -57,7 +125,7 @@ function asString(v: unknown): string {
  */
 const trimTo = (s: string, max: number): string => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
 
-export function adaptPropose(raw: RawPropose, askedStepKey: string): Proposal {
+export function adaptPropose(raw: RawPropose, askedStepKey: string, userText = ""): Proposal {
   const step = stepByKey(askedStepKey);
   const empty: Proposal = {
     proposed: [],
@@ -65,6 +133,8 @@ export function adaptPropose(raw: RawPropose, askedStepKey: string): Proposal {
     message: "",
     outOfDomain: false,
     unmappedText: "",
+    occasion: "",
+    timeframeWeeks: null,
   };
   if (!step) return empty;
 
@@ -98,6 +168,10 @@ export function adaptPropose(raw: RawPropose, askedStepKey: string): Proposal {
   // commonest correct answer and should produce no chips and no complaint.
   const saidNothing = values.includes(UNSPECIFIED) && proposed.length === 0;
 
+  const weeksRaw = Number.parseInt(asString(raw.timeframeWeeks), 10);
+  const timeframeWeeks =
+    ALLOWED_WEEKS.includes(weeksRaw) && mentionsTimeframe(userText) ? weeksRaw : null;
+
   return {
     proposed,
     // A proposal with nothing in it cannot be high-confidence about anything.
@@ -105,5 +179,10 @@ export function adaptPropose(raw: RawPropose, askedStepKey: string): Proposal {
     message: saidNothing ? "" : trimTo(asString(raw.message), 200),
     outOfDomain: outOfDomain && proposed.length === 0,
     unmappedText: outOfDomain ? trimTo(asString(raw.unmappedText), 200) : "",
+    // Short, lower-cased, and never longer than a phrase — it gets rendered
+    // inside a sentence, and a model that answers with one is not writing the
+    // sentence for us.
+    occasion: trimTo(asString(raw.occasion), 40).toLowerCase(),
+    timeframeWeeks,
   };
 }

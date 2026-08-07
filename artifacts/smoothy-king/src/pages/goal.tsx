@@ -48,6 +48,8 @@ export default function Goal() {
    * them in a vocabulary they never used.
    */
   const [narrative, setNarrative] = useState<string>("");
+  /** What they are preparing for, when the sentence named one. */
+  const [occasion, setOccasion] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export default function Goal() {
           setGoal(active.goal);
           setWeeks(active.weeks);
           setNarrative(active.narrative ?? "");
+          setOccasion(active.occasion ?? "");
         }
       } catch {
         if (!cancelled) setFailed(true);
@@ -83,7 +86,7 @@ export default function Goal() {
     if (!goal || !weeks || saving) return;
     setSaving(true);
     try {
-      const period = await startGoal(goal, weeks, token, narrative.trim() || null);
+      const period = await startGoal(goal, weeks, token, narrative.trim() || null, occasion.trim() || null);
       setCurrent(period);
       toast({
         title: "Set",
@@ -156,11 +159,16 @@ export default function Goal() {
         <AssistBox
           step="goals"
           placeholder="e.g. I keep crashing at 3pm and can't focus in meetings"
-          onAccept={(ids, text) => {
+          onAccept={(ids, text, extra) => {
             if (ids[0]) setGoal(ids[0]);
             // Their sentence, kept. The suggestion decided the category; this
             // is what gets shown back to them from here on.
             if (text) setNarrative(text);
+            if (extra?.occasion) setOccasion(extra.occasion);
+            // A deadline they actually stated fills the length in, rather than
+            // making them say "six weeks" twice on the same screen. Only ever
+            // set when the words were in the message — see mentionsTimeframe.
+            if (extra?.timeframeWeeks) setWeeks(extra.timeframeWeeks);
           }}
         />
       </div>
@@ -191,13 +199,23 @@ export default function Goal() {
         })}
       </div>
 
-      {narrative.trim() && (
+      {(occasion.trim() || narrative.trim()) && (
         <div className="mb-10 rounded-2xl bg-muted/40 border p-4">
-          <p className="text-sm text-muted-foreground mb-1">You said</p>
-          <p className="font-serif text-lg">&ldquo;{narrative.trim()}&rdquo;</p>
-          <p className="text-xs text-muted-foreground mt-2">
-            We&apos;ll show this back to you rather than the category name.
-          </p>
+          {occasion.trim() ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-1">So this is</p>
+              <p className="font-serif text-lg">For your {occasion.trim()}</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                That&apos;s how we&apos;ll refer to it. Change the goal or the length below if
+                we&apos;ve read it wrong.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground mb-1">You said</p>
+              <p className="font-serif text-lg">&ldquo;{narrative.trim()}&rdquo;</p>
+            </>
+          )}
         </div>
       )}
 

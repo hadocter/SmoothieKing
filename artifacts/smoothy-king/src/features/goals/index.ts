@@ -31,6 +31,8 @@ export interface GoalPeriod {
   goal: string;
   /** What they said they were after, verbatim. Null if they tapped a card. */
   narrative: string | null;
+  /** What they are preparing for, if they named one. Null otherwise. */
+  occasion: string | null;
   weeks: number;
   startedAt: string;
   endedAt: string | null;
@@ -55,8 +57,12 @@ export const startGoal = (
   weeks: number,
   token: string | null,
   narrative?: string | null,
+  occasion?: string | null,
 ): Promise<GoalPeriod> =>
-  apiFetch<GoalPeriod>("/api/goals", token, { method: "POST", body: { goal, weeks, narrative } });
+  apiFetch<GoalPeriod>("/api/goals", token, {
+    method: "POST",
+    body: { goal, weeks, narrative, occasion },
+  });
 
 export const endGoal = (token: string | null): Promise<GoalPeriod> =>
   apiFetch<GoalPeriod>("/api/goals/end", token, { method: "POST", body: {} });

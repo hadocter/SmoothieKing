@@ -66,6 +66,9 @@ router.post("/onboarding/assist", async (req, res): Promise<void> => {
     proposed: proposal.proposed,
     confidence: proposal.confidence,
     message: proposal.message,
+    // Only ever populated when the message actually named them.
+    occasion: proposal.occasion,
+    timeframeWeeks: proposal.timeframeWeeks,
     // True when they said something clear that no option covers. Distinct from
     // an empty proposal, and the client should say something different for it.
     outOfDomain: proposal.outOfDomain,

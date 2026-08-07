@@ -77,12 +77,20 @@ export function presetForMinutes(minutes: number): string {
 }
 
 export const generateDrinks = (
-  body: { preset: string; subGoals: string[]; count?: number },
+  body: { preset: string; subGoals: string[]; tastes?: string[]; count?: number },
   token: string | null,
 ): Promise<GenerateResult> =>
   apiFetch<GenerateResult>("/api/recipes/generate", token, {
     method: "POST",
-    body: { preset: body.preset, secondaryGoals: body.subGoals, count: body.count ?? 10 },
+    body: {
+      preset: body.preset,
+      secondaryGoals: body.subGoals,
+      // Today's taste, when they said one. Omitted rather than sent empty so
+      // the server falls back to the profile's standing preference instead of
+      // reading "no preference at all".
+      ...(body.tastes && body.tastes.length > 0 ? { tastePreference: body.tastes } : {}),
+      count: body.count ?? 10,
+    },
   });
 
 export interface MatchResult {

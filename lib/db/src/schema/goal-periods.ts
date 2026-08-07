@@ -40,6 +40,20 @@ export const goalPeriodsTable = pgTable("goal_periods", {
   narrative: text("narrative"),
 
   /**
+   * What they are preparing for, if they named one — "a wedding", "a marathon".
+   *
+   * Distinct from the goal and from the narrative. The goal is what the drinks
+   * are built for, the narrative is everything they said, and this is the one
+   * phrase worth putting in a sentence: "For your wedding, 32 days to go"
+   * reads as an app that listened. Showing the whole sentence back verbatim
+   * reads as a form echoing its own input.
+   *
+   * Null when they named nothing, which is most of the time. Nothing infers
+   * one — a made-up occasion is a stranger telling you why you are here.
+   */
+  occasion: text("occasion"),
+
+  /**
    * How long they committed to. Weeks rather than an end date, because that is
    * the unit the choice is made in — nobody picks the 14th of March, they pick
    * "about two months".

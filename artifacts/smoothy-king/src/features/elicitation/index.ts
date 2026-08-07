@@ -7,7 +7,7 @@ import { apiFetch } from "../api";
  * it in `features/elicitation/steps.ts` on the API side and here — nowhere
  * else.
  */
-export type AssistStep = "activity" | "allergies" | "goals" | "taste";
+export type AssistStep = "activity" | "allergies" | "goals" | "taste" | "effort";
 
 export interface ProposedOption {
   id: string;
@@ -24,6 +24,16 @@ export interface AssistResponse {
   /** They said something clear that no option covers. Not the same as empty. */
   outOfDomain: boolean;
   unmappedText: string;
+  /** What they are preparing for, if they named it. Empty otherwise. */
+  occasion: string;
+  /** Weeks until it, only when the message actually said so. */
+  timeframeWeeks: number | null;
+}
+
+/** The extras a caller may want to keep alongside the chosen options. */
+export interface AssistExtras {
+  occasion: string;
+  timeframeWeeks: number | null;
 }
 
 export function proposeOptions(

@@ -95,6 +95,26 @@ export const STEPS: StepSpec[] = [
     ],
   },
   {
+    // Effort, as its own axis. "light one" and "no time" are answers about
+    // the drink's size and how much handling it takes, and there was nowhere
+    // for them to land — a sentence like "just refreshing, light one" came
+    // back as no match at all, because the only thing being asked about was
+    // goals.
+    //
+    // The ids are prefixed rather than reusing the preset names directly, so
+    // no id belongs to two steps. That uniqueness is what lets a proposal be
+    // validated against the step it was asked about.
+    key: "effort",
+    question: "How much of a drink, and how much work?",
+    multi: false,
+    options: [
+      { id: "effort-quick", label: "Quick and small" },
+      { id: "effort-light", label: "Light" },
+      { id: "effort-great", label: "Full and balanced" },
+      { id: "effort-heavy", label: "Big — a meal" },
+    ],
+  },
+  {
     key: "taste",
     question: "What do you like it to taste like?",
     multi: true,
