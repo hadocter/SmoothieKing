@@ -1,5 +1,6 @@
 import { db, recipesTable, ingredientsTable, creationsTable, plansTable } from "@workspace/db";
 import { logger } from "./logger";
+import { resolveItems, scoreRecipe } from "./scoring";
 
 /**
  * Ingredients: SmoothieKing's original 15 plus 28 from the elicitation
@@ -1501,12 +1502,27 @@ export async function seed() {
     logger.info({ count: ingredients.length }, "Seeded ingredients");
   }
 
-  // Seed recipes
+  // Seed recipes.
+  //
+  // Goal scores are computed here rather than written into the literals above,
+  // so that a recipe and its scores cannot drift apart: editing an ingredient
+  // list rescores it on the next fresh seed, and nobody has to remember to
+  // update a number by hand.
   const existingRecipes = await db.select().from(recipesTable);
   if (existingRecipes.length === 0) {
+    const scored = recipes.map((r) => {
+      const { items, unresolved } = resolveItems(r.ingredients, ingredients);
+      if (unresolved.length > 0) {
+        // Not fatal — the recipe still seeds — but it means the recipe names
+        // an ingredient the catalog does not have, and its score is therefore
+        // computed from an incomplete drink.
+        logger.warn({ recipe: r.name, unresolved }, "Recipe ingredients missing from catalog");
+      }
+      return { ...r, goalScores: scoreRecipe(items), source: "curated", published: true };
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.insert(recipesTable).values(recipes as any);
-    logger.info({ count: recipes.length }, "Seeded recipes");
+    await db.insert(recipesTable).values(scored as any);
+    logger.info({ count: scored.length }, "Seeded recipes");
   }
 
   // Seed plans

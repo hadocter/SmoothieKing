@@ -1,154 +1,167 @@
 import { Router, type IRouter } from "express";
+import { eq, and } from "drizzle-orm";
+import { db, recipesTable, ingredientsTable, userProfilesTable, type Recipe } from "@workspace/db";
 import { ListRecipesQueryParams, GetRecipeParams } from "@workspace/api-zod";
+import { optionalAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import {
+  GOALS,
+  GOAL_MATCH_THRESHOLD,
+  MAX_OFFERED,
+  type GoalScores,
+} from "../lib/scoring";
+import { checkRecipe, constraintsFrom, type CheckableIngredient } from "../lib/safety";
 
 const router: IRouter = Router();
 
-export const MOCK_RECIPES = [
-  {
-    id: 1,
-    name: "The Glow Ritual",
-    slug: "the-glow-ritual",
-    category: "smoothie",
-    tagline: "Your daily skin supplement, liquefied.",
-    description: "Inspired by Korean 'glass skin' philosophy — a complexion so luminous it appears backlit.",
-    prepTimeMinutes: 5,
-    servings: 1,
-    calories: 280,
-    protein: 12,
-    benefits: ["glowy-skin", "anti-inflammatory"],
-    skinBenefitScore: 10,
-    ingredients: [
-      { name: "Mango", amount: "1", unit: "cup", benefit: "Vitamin C brightening" },
-      { name: "Dragon Fruit", amount: "1/2", unit: "cup", benefit: "Betalain antioxidants" },
-      { name: "Collagen Peptides", amount: "1", unit: "scoop", benefit: "Collagen synthesis" },
-      { name: "Coconut Water", amount: "3/4", unit: "cup", benefit: "Electrolyte hydration" },
-      { name: "Turmeric", amount: "1/4", unit: "tsp", benefit: "Curcumin brightening" },
-    ],
-    steps: [
-      "Freeze mango and dragon fruit overnight.",
-      "Add coconut water to blender first.",
-      "Layer in frozen fruits, collagen, and turmeric.",
-      "Blend on high for 45 seconds.",
-      "Pour into a chilled glass and enjoy."
-    ],
-    imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7dd0dc9?auto=format&fit=crop&q=80&w=800",
-    isFeatured: true,
-    difficulty: "easy",
-    tags: ["glow", "collagen", "vitamin-c", "korean-beauty"],
-  },
-  {
-    id: 2,
-    name: "Jade Depth",
-    slug: "jade-depth",
-    category: "smoothie",
-    tagline: "Forty shades of green. One purpose: clarity.",
-    description: "A deep-chlorophyll detox smoothie drawing from Japan's matcha tradition and Korea's botanical rituals.",
-    prepTimeMinutes: 5,
-    servings: 1,
-    calories: 195,
-    protein: 8,
-    benefits: ["detox-clarity", "anti-inflammatory"],
-    skinBenefitScore: 8,
-    ingredients: [
-      { name: "Spinach", amount: "2", unit: "cups", benefit: "Chlorophyll detox" },
-      { name: "Matcha", amount: "1", unit: "tsp", benefit: "EGCG antioxidants" },
-      { name: "Avocado", amount: "1/4", unit: "whole", benefit: "Healthy fat absorption" },
-      { name: "Ginger", amount: "1", unit: "inch", benefit: "Circulation activation" },
-      { name: "Coconut Water", amount: "1", unit: "cup", benefit: "Electrolyte base" },
-    ],
-    steps: [
-      "Add coconut water and spinach, blend until smooth.",
-      "Add matcha, avocado, and ginger.",
-      "Blend 60 seconds on high.",
-      "Serve fresh."
-    ],
-    imageUrl: "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=800",
-    isFeatured: true,
-    difficulty: "easy",
-    tags: ["detox", "matcha", "alkaline", "energy"],
-  },
-  {
-    id: 3,
-    name: "Cloud Nine Shaker",
-    slug: "cloud-nine-shaker",
-    category: "shaker",
-    tagline: "Muscle recovery as a meditative act.",
-    description: "Engineered for active athletes. 42g of clean protein with a creamy vanilla-coconut base.",
-    prepTimeMinutes: 3,
-    servings: 1,
-    calories: 420,
-    protein: 42,
-    benefits: ["protein-power"],
-    skinBenefitScore: 5,
-    ingredients: [
-      { name: "Whey Protein Isolate", amount: "2", unit: "scoops", benefit: "Muscle synthesis" },
-      { name: "Avocado", amount: "1/4", unit: "whole", benefit: "Recovery fats" },
-      { name: "Coconut Water", amount: "1", unit: "cup", benefit: "Electrolytes" },
-      { name: "Blueberry", amount: "1/2", unit: "cup", benefit: "Recovery boost" },
-    ],
-    steps: [
-      "Combine coconut water and blueberries in blender.",
-      "Add avocado and whey protein.",
-      "Blend for 30 seconds.",
-      "Drink post-workout."
-    ],
-    imageUrl: "https://images.unsplash.com/photo-1546173159-315724a31696?auto=format&fit=crop&q=80&w=800",
-    isFeatured: true,
-    difficulty: "easy",
-    tags: ["protein", "recovery", "performance"],
-  },
-  {
-    id: 4,
-    name: "Soleil Protocol",
-    slug: "soleil-protocol",
-    category: "smoothie",
-    tagline: "Wear sunscreen. Drink this.",
-    description: "Lycopene, beta-carotene, and citrulline for cellular UV defense and deep hydration.",
-    prepTimeMinutes: 7,
-    servings: 1,
-    calories: 190,
-    protein: 4,
-    benefits: ["sun-ritual", "hydration"],
-    skinBenefitScore: 9,
-    ingredients: [
-      { name: "Watermelon", amount: "2", unit: "cups", benefit: "Citrulline & lycopene" },
-      { name: "Mango", amount: "1/2", unit: "cup", benefit: "Beta-carotene defense" },
-      { name: "Coconut Water", amount: "1/2", unit: "cup", benefit: "Hydration base" },
-    ],
-    steps: [
-      "Blend watermelon and coconut water.",
-      "Add mango and blend high for 45s.",
-      "Serve chilled."
-    ],
-    imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7dd0dc9?auto=format&fit=crop&q=80&w=800",
-    isFeatured: true,
-    difficulty: "easy",
-    tags: ["sun-ritual", "uv-defense", "hydration"],
-  },
-];
+/**
+ * These routes served a hard-coded MOCK_RECIPES array of four. The database
+ * has eight — the mock had drifted, so half the catalog was unreachable from
+ * the app while sitting in Postgres the whole time. Everything below reads the
+ * table.
+ */
+
+/** Just the columns safety and scoring need. */
+async function loadCatalog(): Promise<CheckableIngredient[]> {
+  const rows = await db
+    .select({
+      name: ingredientsTable.name,
+      benefits: ingredientsTable.benefits,
+      proteinG: ingredientsTable.proteinG,
+      servingGrams: ingredientsTable.servingGrams,
+      contains: ingredientsTable.contains,
+      animal: ingredientsTable.animal,
+    })
+    .from(ingredientsTable);
+  return rows;
+}
+
+function scoresOf(recipe: Recipe): GoalScores {
+  const raw = recipe.goalScores;
+  return raw !== null && typeof raw === "object" && !Array.isArray(raw) ? (raw as GoalScores) : {};
+}
+
+/** Only published recipes are visible on the browsing routes. */
+const visible = eq(recipesTable.published, true);
 
 router.get("/recipes/featured", async (_req, res): Promise<void> => {
-  res.json(MOCK_RECIPES.filter((r) => r.isFeatured));
+  const rows = await db
+    .select()
+    .from(recipesTable)
+    .where(and(visible, eq(recipesTable.isFeatured, true)));
+  res.json(rows);
 });
 
-router.get("/recipes/by-benefit", async (_req, res): Promise<void> => {
-  const benefitMap: Record<string, { label: string; description: string }> = {
-    "glowy-skin": { label: "Glowy Skin", description: "K-beauty inspired collagen & antioxidant blends." },
-    "hydration": { label: "Deep Hydration", description: "Replenish moisture at a cellular level." },
-    "sun-ritual": { label: "Sun Ritual", description: "Natural lycopene & beta-carotene UV defense." },
-    "protein-power": { label: "Protein & Power", description: "High-performance muscle recovery." },
-    "anti-inflammatory": { label: "Anti-Inflammatory", description: "Curcumin & adaptogen calming blends." },
-    "detox-clarity": { label: "Detox & Clarity", description: "Chlorophyll-dense system reset." },
-  };
+/**
+ * Goal ids to the copy shown above each group.
+ *
+ * Duplicated from the web app's GOAL_LABELS, which is not ideal — but the two
+ * new goals had no descriptions written for them and inventing marketing copy
+ * on the server would be the wrong place to do it. Both new entries are stated
+ * plainly and can be rewritten by whoever owns the voice.
+ */
+const BENEFIT_COPY: Record<string, { label: string; description: string }> = {
+  "glowy-skin": { label: "Glowy Skin", description: "K-beauty inspired collagen & antioxidant blends." },
+  "hydration": { label: "Deep Hydration", description: "Replenish moisture at a cellular level." },
+  "sun-ritual": { label: "Sun Ritual", description: "Natural lycopene & beta-carotene UV defense." },
+  "protein-power": { label: "Protein & Power", description: "High-performance muscle recovery." },
+  "anti-inflammatory": { label: "Anti-Inflammatory", description: "Curcumin & adaptogen calming blends." },
+  "detox-clarity": { label: "Detox & Clarity", description: "Chlorophyll-dense system reset." },
+  "gut-health": { label: "Gut Health", description: "Fermented and fibre-rich blends for digestion." },
+  "energy-focus": { label: "Energy & Focus", description: "Caffeine and adaptogens for sustained attention." },
+};
 
-  const groups = Object.entries(benefitMap).map(([benefit, meta]) => ({
-    benefit,
-    label: meta.label,
-    description: meta.description,
-    recipes: MOCK_RECIPES.filter((r) => r.benefits.includes(benefit)),
-  })).filter((g) => g.recipes.length > 0);
+router.get("/recipes/by-benefit", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(recipesTable).where(visible);
+
+  const groups = GOALS.map((benefit) => {
+    const copy = BENEFIT_COPY[benefit];
+    return {
+      benefit,
+      label: copy.label,
+      description: copy.description,
+      // Grouped on the editorial `benefits` tags, deliberately. This is the
+      // browsing view — it should show what a recipe was written to be, not
+      // what a scoring function computed about it. Matching is the route that
+      // uses scores.
+      recipes: rows.filter((r) => r.benefits.includes(benefit)),
+    };
+  }).filter((g) => g.recipes.length > 0);
 
   res.json(groups);
+});
+
+/**
+ * Recipes that fit a goal, safe for whoever is asking.
+ *
+ *   GET /api/recipes/match?goal=gut-health[&allergies=Dairy,Tree%20Nuts][&vegan=true]
+ *
+ * Order of operations matters and is fixed: safety filters first, then the
+ * goal threshold, then ranking. Filtering on fit first and checking safety
+ * afterwards would produce the same list here, but it makes safety a property
+ * of the presentation rather than of the set — and the moment anything caches
+ * or paginates the ranked list, an unsafe recipe is in it.
+ *
+ * Allergies come from the signed-in user's profile. The query parameters
+ * override them, so the flow can be exercised without an account and so a
+ * one-off constraint does not have to be saved to a profile to take effect.
+ */
+router.get("/recipes/match", optionalAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const goal = typeof req.query.goal === "string" ? req.query.goal : "";
+  if (!GOALS.includes(goal as (typeof GOALS)[number])) {
+    res.status(400).json({ error: `goal must be one of: ${GOALS.join(", ")}` });
+    return;
+  }
+
+  const [profile] = req.user
+    ? await db
+        .select()
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, req.user.userId))
+        .limit(1)
+    : [];
+
+  const override = typeof req.query.allergies === "string" ? req.query.allergies : null;
+  const allergies =
+    override !== null
+      ? override.split(",").map((a) => a.trim()).filter(Boolean)
+      : profile?.allergies ?? [];
+
+  const catalog = await loadCatalog();
+  const constraints = constraintsFrom({ allergies }, catalog, {
+    vegan: req.query.vegan === "true",
+  });
+
+  const rows = await db.select().from(recipesTable).where(visible);
+
+  const safe: { recipe: Recipe; score: number }[] = [];
+  let blockedCount = 0;
+
+  for (const recipe of rows) {
+    const report = checkRecipe(recipe.ingredients, catalog, constraints);
+    if (!report.safe) {
+      blockedCount += 1;
+      continue;
+    }
+    const score = scoresOf(recipe)[goal] ?? 0;
+    if (score >= GOAL_MATCH_THRESHOLD) safe.push({ recipe, score });
+  }
+
+  safe.sort((a, b) => b.score - a.score || a.recipe.id - b.recipe.id);
+
+  res.json({
+    goal,
+    threshold: GOAL_MATCH_THRESHOLD,
+    // How many cleared the bar in total, before the display cap. The client
+    // needs this to say "6 of 11" rather than implying six is all there is.
+    matchCount: safe.length,
+    blockedBySafety: blockedCount,
+    // Reported so the client can be honest that a stated allergy could not be
+    // enforced, rather than showing a clean result that implies it was.
+    unenforceableAllergies: constraints.unresolved,
+    // Capped, not padded: everything returned genuinely clears the threshold.
+    // See MAX_OFFERED for why the cap is six.
+    recipes: safe.slice(0, MAX_OFFERED).map(({ recipe, score }) => ({ ...recipe, matchScore: score })),
+  });
 });
 
 router.get("/recipes", async (req, res): Promise<void> => {
@@ -160,12 +173,16 @@ router.get("/recipes", async (req, res): Promise<void> => {
 
   const { category, benefit, search } = parsed.data;
 
-  let result = MOCK_RECIPES;
+  let result = await db.select().from(recipesTable).where(visible);
   if (category) result = result.filter((r) => r.category === category);
   if (benefit) result = result.filter((r) => r.benefits.includes(benefit));
   if (search) {
     const q = search.toLowerCase();
-    result = result.filter((r) => r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+    result = result.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.description ?? "").toLowerCase().includes(q),
+    );
   }
 
   res.json(result);
@@ -179,7 +196,12 @@ router.get("/recipes/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const recipe = MOCK_RECIPES.find((r) => r.id === params.data.id);
+  const [recipe] = await db
+    .select()
+    .from(recipesTable)
+    .where(eq(recipesTable.id, params.data.id))
+    .limit(1);
+
   if (!recipe) {
     res.status(404).json({ error: "Recipe not found" });
     return;

@@ -21,6 +21,40 @@ export const recipesTable = pgTable("recipes", {
   isFeatured: boolean("is_featured").notNull().default(false),
   difficulty: text("difficulty"), // easy | medium | advanced
   tags: text("tags").array().notNull().default([]),
+
+  /* ---- goal matching ---- */
+
+  /**
+   * Fit against every goal, 0..1, computed by running the build backwards over
+   * the recipe's ingredients. See `scoring.ts` in the API server for how, and
+   * for why protein is measured differently from everything else.
+   *
+   * Distinct from `benefits`, which is what a human said the recipe is for.
+   * Both are kept: `benefits` is editorial and drives copy, `goalScores` is
+   * derived and drives ranking. Where they disagree the disagreement is worth
+   * seeing rather than resolving silently.
+   *
+   * Stored rather than computed per request because a match query filters and
+   * orders on it, and because it lets a recipe be generated once and ranked
+   * many times.
+   */
+  goalScores: jsonb("goal_scores").notNull().default({}),
+
+  /**
+   * Where the recipe came from. `curated` is hand-written and shipped with the
+   * app; `generated` was built for a specific user's profile.
+   *
+   * Generated recipes are all kept — they are the user's consumption history,
+   * so deleting the unremarkable ones would put holes in it.
+   */
+  source: text("source").notNull().default("curated"), // curated | generated
+
+  /**
+   * Visible to people other than its author. Curated recipes are published;
+   * a generated one stays private until its owner chooses otherwise, because
+   * it was built from their profile and answers.
+   */
+  published: boolean("published").notNull().default(true),
 });
 
 export const insertRecipeSchema = createInsertSchema(recipesTable).omit({ id: true });
