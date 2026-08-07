@@ -27,6 +27,16 @@ export const OUT_OF_DOMAIN = "OUT_OF_DOMAIN";
 export interface StepOption {
   id: string;
   label: string;
+  /**
+   * What this option covers, in the words people actually use.
+   *
+   * Shown to the model alongside the label. Without it, "I want a muscular
+   * body" was answered out-of-domain roughly a third of the time — the option
+   * is called "Protein & Power" and nothing said that muscle belongs to it, so
+   * a model told to be careful was careful in the wrong direction. Naming the
+   * scope is not a hint to guess; it is the definition a person would need too.
+   */
+  covers?: string;
 }
 
 export interface StepSpec {
@@ -54,11 +64,11 @@ export const STEPS: StepSpec[] = [
     question: "How active are you?",
     multi: false,
     options: [
-      { id: "sedentary", label: "Mostly Sedentary" },
-      { id: "light", label: "Lightly Active" },
-      { id: "moderate", label: "Moderately Active" },
-      { id: "active", label: "Very Active" },
-      { id: "very_active", label: "Extremely Active" },
+      { id: "sedentary", label: "Mostly Sedentary", covers: "desk job, little or no exercise" },
+      { id: "light", label: "Lightly Active", covers: "occasional walks, exercise once or twice a week" },
+      { id: "moderate", label: "Moderately Active", covers: "exercise three to five days a week" },
+      { id: "active", label: "Very Active", covers: "hard training most days, lifting, running" },
+      { id: "very_active", label: "Extremely Active", covers: "twice-daily or professional-level training" },
     ],
   },
   {
@@ -84,14 +94,14 @@ export const STEPS: StepSpec[] = [
     question: "What are you hoping this does for you?",
     multi: true,
     options: [
-      { id: "glowy-skin", label: "Glowy Skin" },
-      { id: "hydration", label: "Deep Hydration" },
-      { id: "sun-ritual", label: "Sun Ritual" },
-      { id: "protein-power", label: "Protein & Power" },
-      { id: "anti-inflammatory", label: "Anti-Inflammatory" },
-      { id: "detox-clarity", label: "Detox & Clarity" },
-      { id: "gut-health", label: "Gut Health" },
-      { id: "energy-focus", label: "Energy & Focus" },
+      { id: "glowy-skin", label: "Glowy Skin", covers: "skin, complexion, glow, dullness, breakouts, looking well" },
+      { id: "hydration", label: "Deep Hydration", covers: "thirst, dryness, water intake, feeling parched" },
+      { id: "sun-ritual", label: "Sun Ritual", covers: "protecting skin from sun exposure, being outdoors a lot, after burning" },
+      { id: "protein-power", label: "Protein & Power", covers: "muscle, strength, getting bigger or leaner, lifting, recovery after training, a fit or muscular body" },
+      { id: "anti-inflammatory", label: "Anti-Inflammatory", covers: "soreness, aching joints, recovery, feeling inflamed or puffy" },
+      { id: "detox-clarity", label: "Detox & Clarity", covers: "feeling sluggish or heavy, wanting a reset, cutting sugar" },
+      { id: "gut-health", label: "Gut Health", covers: "digestion, bloating, stomach trouble, regularity" },
+      { id: "energy-focus", label: "Energy & Focus", covers: "tiredness, afternoon crashes, concentration, staying alert" },
     ],
   },
   {
@@ -108,10 +118,10 @@ export const STEPS: StepSpec[] = [
     question: "How much of a drink, and how much work?",
     multi: false,
     options: [
-      { id: "effort-quick", label: "Quick and small" },
-      { id: "effort-light", label: "Light" },
-      { id: "effort-great", label: "Full and balanced" },
-      { id: "effort-heavy", label: "Big — a meal" },
+      { id: "effort-quick", label: "Quick and small", covers: "in a rush, no time, grab and go" },
+      { id: "effort-light", label: "Light", covers: "something small, not much, light" },
+      { id: "effort-great", label: "Full and balanced", covers: "a proper one, balanced, worth the time" },
+      { id: "effort-heavy", label: "Big — a meal", covers: "hungry, replacing a meal, big and filling" },
     ],
   },
   {
@@ -119,10 +129,10 @@ export const STEPS: StepSpec[] = [
     question: "What do you like it to taste like?",
     multi: true,
     options: [
-      { id: "sweet", label: "Sweet" },
-      { id: "sour", label: "Tart & Citrus" },
-      { id: "nutty", label: "Nutty & Rich" },
-      { id: "fresh", label: "Fresh & Herbal" },
+      { id: "sweet", label: "Sweet", covers: "sweet, sugary, fruity" },
+      { id: "sour", label: "Tart & Citrus", covers: "tart, sharp, citrus, tangy" },
+      { id: "nutty", label: "Nutty & Rich", covers: "nutty, rich, chocolatey, creamy" },
+      { id: "fresh", label: "Fresh & Herbal", covers: "fresh, green, herbal, refreshing, clean" },
     ],
   },
 ];

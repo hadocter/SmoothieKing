@@ -39,8 +39,36 @@ class ToolCallRejected extends Error {
   }
 }
 
+/**
+ * Rate limited. Worth waiting for, unlike everything else that can go wrong.
+ *
+ * A 429 says "ask again shortly"; a schema rejection says "this will never
+ * work". Treating both as fatal is what made a burst of requests silently
+ * degrade to keyword matching — 60% of calls during one measurement, and the
+ * user has no way to tell, because the fallback answers in the same shape.
+ */
+class RateLimited extends Error {
+  // A plain field, not a parameter property: Node runs these files by
+  // stripping types, and `constructor(readonly x)` is syntax that has to be
+  // compiled rather than erased. tsc accepts it; the test runner cannot load
+  // the file at all.
+  readonly retryAfterMs: number;
+
+  constructor(retryAfterMs: number) {
+    super(`Rate limited, retry in ${retryAfterMs}ms`);
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Small jitter so parallel axes do not retry in lockstep and collide again. */
+const jitter = (ms: number) => ms + Math.random() * ms * 0.4;
+
 function optionsPrompt(step: StepSpec): string {
-  const lines = step.options.map((o) => `  - ${o.id}: ${o.label}`).join("\n");
+  const lines = step.options
+    .map((o) => `  - ${o.id}: ${o.label}${o.covers ? ` — covers ${o.covers}` : ""}`)
+    .join("\n");
   return [
     `Step: ${step.key}`,
     `Question: ${step.question}`,
@@ -64,6 +92,24 @@ export class GroqAssistProvider implements AssistProvider {
     const step = stepByKey(stepKey);
     if (!step) throw new Error(`Unknown step "${stepKey}"`);
 
+    // Two retries, because the limit is per-minute and a burst clears quickly.
+    // Not more: past this the caller's fallback is a better answer than a user
+    // watching a spinner.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.callOnce(step, userText, stepKey);
+      } catch (err) {
+        if (!(err instanceof RateLimited) || attempt >= 2) throw err;
+        await sleep(jitter(err.retryAfterMs));
+      }
+    }
+  }
+
+  private async callOnce(
+    step: StepSpec,
+    userText: string,
+    stepKey: string,
+  ): Promise<Proposal> {
     const res = await fetch(GROQ_URL, {
       method: "POST",
       headers: {
@@ -95,12 +141,18 @@ export class GroqAssistProvider implements AssistProvider {
     });
 
     if (!res.ok) {
+      if (res.status === 429) {
+        // Groq sends a Retry-After in seconds when it has an opinion; a second
+        // is a reasonable floor when it does not.
+        const after = Number.parseFloat(res.headers.get("retry-after") ?? "");
+        throw new RateLimited(Number.isFinite(after) ? after * 1000 : 1000);
+      }
       const body = await res.text();
       if (res.status === 400 && body.includes("tool_use_failed")) {
         throw new ToolCallRejected(body.slice(0, 300));
       }
-      // The body can echo request content; the status and a short prefix are
-      // enough to diagnose without pasting a user's sentence into the logs.
+      // The body can echo request content; the status is enough to diagnose
+      // without pasting a user's sentence into the logs.
       throw new Error(`Groq API error ${res.status}`);
     }
 

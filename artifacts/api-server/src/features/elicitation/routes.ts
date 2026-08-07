@@ -54,7 +54,10 @@ router.post("/onboarding/assist", async (req, res): Promise<void> => {
     // answers instead, and the response says which one did — degrading quietly
     // into something worse without saying so is how a feature stops being
     // trustworthy.
-    logger.warn({ err, step, provider: provider.name }, "Assist provider failed; using keyword fallback");
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err), step, provider: provider.name },
+      "Assist provider failed; using keyword fallback",
+    );
     proposal = await fallback.propose(step, text);
     answeredBy = `${fallback.name} (fallback)`;
   }

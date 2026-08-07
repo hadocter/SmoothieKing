@@ -45,6 +45,7 @@ export function TodayBox({
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [taken, setTaken] = useState<string[]>([]);
   const [failed, setFailed] = useState(false);
+  const [degraded, setDegraded] = useState(false);
 
   async function submit() {
     if (!text.trim() || pending) return;
@@ -56,12 +57,16 @@ export function TodayBox({
       const results = await Promise.all(
         AXES.map((axis) =>
           proposeOptions(axis, text.trim())
-            .then((r) => ({ axis, options: r.proposed }))
+            .then((r) => ({ axis, options: r.proposed, by: r.answeredBy }))
             // A failed axis is one missing suggestion, not a broken box.
-            .catch(() => ({ axis, options: [] as ProposedOption[] })),
+            .catch(() => ({ axis, options: [] as ProposedOption[], by: "" })),
         ),
       );
       const found = results.filter((g) => g.options.length > 0);
+      // The keyword fallback matches literal words, so it misses anything
+      // phrased around them. Saying so beats letting a degraded answer read as
+      // the feature being bad at its job.
+      setDegraded(results.some((r) => r.by.includes("fallback")));
       if (found.length === 0) setFailed(true);
       setGroups(found);
     } finally {
@@ -109,7 +114,15 @@ export function TodayBox({
 
       {failed && (
         <p className="text-sm text-muted-foreground mt-3">
-          Nothing in there we could use — the options below still work.
+          {degraded
+            ? "Couldn't read that properly just now — try again in a moment, or use the options below."
+            : "Nothing in there we could use — the options below still work."}
+        </p>
+      )}
+
+      {degraded && !failed && (
+        <p className="text-xs text-muted-foreground mt-3">
+          Read on keywords this time, so it may have missed something.
         </p>
       )}
 
