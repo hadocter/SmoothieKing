@@ -11,13 +11,19 @@ import { GoalBanner } from "@/features/goals/GoalBanner";
 import { AssistBox } from "@/features/elicitation";
 import {
   TIME_CHOICES,
+  editRecipe,
   generateDrinks,
+  logDrink,
   presetForMinutes,
+  publishRecipe,
   type BuiltDrink,
   type GenerateResult,
 } from "@/features/build";
 import { BlendingScene } from "@/features/build/BlendingScene";
 import { DrinkCard } from "@/features/build/DrinkCard";
+import { PourScene } from "@/features/build/PourScene";
+import { RecipeSteps } from "@/features/build/RecipeSteps";
+import { PublishForm } from "@/features/build/PublishForm";
 
 /**
  * Today's smoothie.
@@ -36,7 +42,7 @@ import { DrinkCard } from "@/features/build/DrinkCard";
  * and whether they want anything extra.
  */
 
-type Phase = "ask" | "building" | "choose";
+type Phase = "ask" | "building" | "choose" | "pour" | "make" | "publish" | "done";
 
 export default function Builder() {
   const { token, isLoggedIn } = useAuth();
@@ -52,6 +58,47 @@ export default function Builder() {
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [chosen, setChosen] = useState<BuiltDrink | null>(null);
   const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  /**
+   * Reaching the end of the recipe is what counts as having made and drunk it.
+   *
+   * Logging at generation would record nine drinks that never happened out of
+   * every batch of ten, and nothing later recovers a history that was wrong
+   * when it was written.
+   */
+  async function finishMaking() {
+    if (!chosen) return;
+    setSaving(true);
+    try {
+      await logDrink(chosen.id, token);
+    } catch {
+      // The log failing should not block the rest of the flow — they still
+      // made the drink. Said out loud rather than swallowed.
+      toast({ title: "Couldn't add that to your history", variant: "destructive" });
+    } finally {
+      setSaving(false);
+      setPhase("publish");
+    }
+  }
+
+  async function publish(patch: { name: string; description: string; imageUrl: string }) {
+    if (!chosen) return;
+    setSaving(true);
+    try {
+      const updated = await editRecipe(chosen.id, patch, token);
+      await publishRecipe(chosen.id, token);
+      // Carry the edit forward, or the confirmation screen congratulates them
+      // on the name they just changed away from.
+      setChosen({ ...chosen, ...updated });
+      toast({ title: "Posted", description: `${patch.name} is on the board.` });
+      setPhase("done");
+    } catch {
+      toast({ title: "Couldn't post that", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -187,17 +234,72 @@ export default function Builder() {
               size="lg"
               className="rounded-full px-8 gap-2"
               disabled={!chosen}
-              onClick={() =>
-                toast({
-                  title: chosen?.name ?? "",
-                  description: "Making it is the next screen — not built yet.",
-                })
-              }
+              onClick={() => setPhase("pour")}
             >
               Make this one
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------- pour, make, publish, done ---------------- */
+
+  if (phase === "pour" && chosen) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-14">
+        <PourScene drink={chosen} onDone={() => setPhase("make")} />
+      </div>
+    );
+  }
+
+  if (phase === "make" && chosen) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-14">
+        <RecipeSteps drink={chosen} onFinished={() => void finishMaking()} finishing={saving} />
+      </div>
+    );
+  }
+
+  if (phase === "publish" && chosen) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-14">
+        <PublishForm
+          drink={chosen}
+          busy={saving}
+          onPublish={(patch) => void publish(patch)}
+          onSkip={() => setPhase("done")}
+        />
+      </div>
+    );
+  }
+
+  if (phase === "done" && chosen) {
+    return (
+      <div className="max-w-xl mx-auto px-6 py-24 text-center">
+        <div
+          className="w-24 h-24 rounded-full mx-auto mb-8"
+          style={{ background: chosen.appearance?.css ?? "#ddd" }}
+        />
+        <h1 className="font-serif text-3xl font-medium mb-3">{chosen.name}</h1>
+        <p className="text-muted-foreground mb-10">It&apos;s in your history. Same time tomorrow?</p>
+        <div className="flex justify-center gap-3">
+          <Link href="/profile">
+            <Button variant="outline" size="lg" className="rounded-full px-6">See your history</Button>
+          </Link>
+          <Button
+            size="lg"
+            className="rounded-full px-6"
+            onClick={() => {
+              setChosen(null);
+              setResult(null);
+              setPhase("ask");
+            }}
+          >
+            Build another
+          </Button>
         </div>
       </div>
     );

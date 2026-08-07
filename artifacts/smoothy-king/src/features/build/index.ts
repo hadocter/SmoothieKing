@@ -82,3 +82,19 @@ export const generateDrinks = (
     method: "POST",
     body: { preset: body.preset, secondaryGoals: body.subGoals, count: body.count ?? 10 },
   });
+
+export const logDrink = (recipeId: number, token: string | null): Promise<{ id: number }> =>
+  apiFetch<{ id: number }>("/api/smoothie-logs", token, { method: "POST", body: { recipeId } });
+
+export const editRecipe = (
+  id: number,
+  patch: { name?: string; description?: string; imageUrl?: string },
+  token: string | null,
+): Promise<BuiltDrink> =>
+  apiFetch<BuiltDrink>(`/api/recipes/${id}`, token, { method: "PATCH", body: patch });
+
+export const publishRecipe = (id: number, token: string | null): Promise<BuiltDrink> =>
+  apiFetch<BuiltDrink>(`/api/recipes/${id}/publish`, token, {
+    method: "POST",
+    body: { published: true },
+  });

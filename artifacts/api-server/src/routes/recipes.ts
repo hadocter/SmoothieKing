@@ -147,6 +147,86 @@ router.post("/recipes/:id/publish", requireAuth, async (req: AuthenticatedReques
   res.json(updated);
 });
 
+/**
+ * Edit one of your own recipes.
+ *
+ *   PATCH /api/recipes/:id  { name?, description?, imageUrl? }
+ *
+ * The name and story arrive written by a model and the author edits them, so
+ * this is the endpoint that makes those a draft rather than a decision. Only
+ * the three fields a person would actually change — the ingredients and the
+ * scores are what the drink *is*, and letting them be edited would decouple a
+ * recipe from the numbers computed about it.
+ *
+ * `imageUrl` accepts a data URL. That is the right call for a local build with
+ * no object storage and the wrong one for production: images live in the same
+ * row as the recipe, so every listing query drags them along. Moving to real
+ * storage means changing this one field's contract.
+ */
+const MAX_IMAGE_CHARS = 2_000_000; // ~1.5MB of base64.
+
+router.patch("/recipes/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const params = GetRecipeParams.safeParse({ id: raw });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const patch: { name?: string; description?: string; imageUrl?: string } = {};
+
+  if (typeof body.name === "string") {
+    const name = body.name.trim().slice(0, 80);
+    if (!name) {
+      res.status(400).json({ error: "name cannot be empty" });
+      return;
+    }
+    patch.name = name;
+  }
+  if (typeof body.description === "string") patch.description = body.description.trim().slice(0, 1000);
+  if (typeof body.imageUrl === "string") {
+    if (body.imageUrl.length > MAX_IMAGE_CHARS) {
+      res.status(413).json({ error: "Image is too large" });
+      return;
+    }
+    // Only inline data or nothing. A remote URL here would let a recipe pull
+    // an image from anywhere, which is someone else's bandwidth and a tracking
+    // pixel waiting to happen.
+    if (body.imageUrl && !body.imageUrl.startsWith("data:image/")) {
+      res.status(400).json({ error: "imageUrl must be an inline image" });
+      return;
+    }
+    patch.imageUrl = body.imageUrl;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "Nothing to change" });
+    return;
+  }
+
+  const [recipe] = await db
+    .select()
+    .from(recipesTable)
+    .where(eq(recipesTable.id, params.data.id))
+    .limit(1);
+
+  // Same 404 for "not yours" as for "not there", so ids cannot be mapped by
+  // their status codes.
+  if (!recipe || recipe.createdByUserId !== req.user!.userId) {
+    res.status(404).json({ error: "Recipe not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(recipesTable)
+    .set(patch)
+    .where(eq(recipesTable.id, recipe.id))
+    .returning();
+
+  res.json(updated);
+});
+
 router.get("/recipes/:id", optionalAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetRecipeParams.safeParse({ id: raw });

@@ -26,7 +26,12 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+// 3mb, not the 100kb default: a published recipe can carry its photo inline as
+// a data URL, and the default would reject every upload with a 413 that looks
+// like a server fault rather than a size limit. The cap that actually governs
+// image size is enforced per-field in the recipes route; this only has to be
+// wide enough not to be the thing that rejects first.
+app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
