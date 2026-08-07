@@ -10,6 +10,9 @@ out-tsc
 
 # dependencies
 node_modules
+# pnpm's content-addressable store — lands in the repo when pnpm runs with
+# the tree bind-mounted into a container.
+.pnpm-store
 
 # IDEs and editors
 /.idea
@@ -36,6 +39,11 @@ npm-debug.log
 yarn-error.log
 testem.log
 /typings
+
+# Secrets. There was no rule here before and there needs to be one.
+.env
+.env.*
+!.env.example
 
 # System Files
 .DS_Store

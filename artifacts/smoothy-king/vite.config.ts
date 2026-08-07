@@ -71,7 +71,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        // Env-driven so the same config works under Replit (default) and in
+        // docker compose, where the API is a service name rather than
+        // localhost. Default is the previous hard-coded value, so nothing
+        // changes for anyone not setting it.
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:5000',
         changeOrigin: true,
       },
     },
