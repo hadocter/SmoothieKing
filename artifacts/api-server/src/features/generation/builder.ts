@@ -44,7 +44,7 @@ export interface BuildProfile {
  */
 export type Preset = "great" | "quick" | "heavy" | "light";
 
-interface PresetSpec {
+export interface PresetSpec {
   id: Preset;
   label: string;
   /** Ceiling for optional ingredients. Liquid and protein are structural. */
@@ -56,17 +56,58 @@ interface PresetSpec {
    * very different amounts of morning.
    */
   maxExtras: number;
+  /**
+   * Roughly how long this takes to make, in minutes.
+   *
+   * Derived from `maxExtras` rather than being an independent number — every
+   * optional ingredient is one more thing to fetch, measure and put back, so a
+   * separate figure would be a second source of truth that drifts. Two minutes
+   * of setup plus about a minute per extra.
+   */
+  minutes: number;
 }
+
+const withMinutes = (spec: Omit<PresetSpec, "minutes">): PresetSpec => ({
+  ...spec,
+  minutes: 2 + Math.min(spec.maxExtras, 6),
+});
 
 export const PRESETS: PresetSpec[] = [
   { id: "great", label: "Great one", calorieTarget: 420, maxExtras: 6 },
   { id: "quick", label: "Quick one", calorieTarget: 300, maxExtras: 2 },
   { id: "heavy", label: "Heavy one", calorieTarget: 620, maxExtras: 6 },
   { id: "light", label: "Light one", calorieTarget: 210, maxExtras: 3 },
-];
+].map(withMinutes);
 
 const presetById = (id: Preset): PresetSpec =>
   PRESETS.find((p) => p.id === id) ?? PRESETS[0];
+
+/**
+ * The preset that fits the time someone says they have.
+ *
+ * Asking "how many minutes do you have?" and asking "what kind of drink?" are
+ * the same question wearing different clothes, and answering both would be
+ * asking twice. This maps the time answer onto the presets that already exist
+ * rather than introducing a parallel notion of speed that could disagree with
+ * `maxExtras`.
+ *
+ * Ties go to the richer drink: given four minutes, "quick" (4) and "light" (5)
+ * both nearly fit, and someone who said four minutes would rather be told a
+ * five-minute option than have a choice quietly narrowed. Only `quick` is
+ * offered when time is genuinely short.
+ */
+export function presetForMinutes(minutes: number): Preset {
+  const affordable = PRESETS.filter((p) => p.minutes <= minutes);
+  if (affordable.length === 0) return "quick";
+  // The most substantial thing that fits, not the fastest.
+  return affordable.reduce((best, p) => (p.calorieTarget > best.calorieTarget ? p : best)).id;
+}
+
+/** Presets that fit in the time available, for offering as choices. */
+export function presetsWithin(minutes: number): PresetSpec[] {
+  const affordable = PRESETS.filter((p) => p.minutes <= minutes);
+  return affordable.length > 0 ? affordable : [presetById("quick")];
+}
 
 /** Fill target for the glass, in ml/g. */
 const TARGET_VOLUME = 400;
@@ -359,15 +400,3 @@ export function buildSmoothie(
 export const fillPercent = (grams: number): number =>
   Math.min(100, Math.round((grams / TARGET_VOLUME) * 100));
 
-/**
- * The recipe's name.
- *
- * A placeholder. Naming is a language job and belongs to the model; this
- * returns a fixed string so that everything downstream — storage, the unique
- * slug, the card, the history — can be built and tested before any of it
- * depends on a network call that might fail or cost money. Swapping it for the
- * real thing is one function.
- */
-export function recipeName(_result: BuildResult, _profile: BuildProfile): string {
-  return "testname:llm";
-}

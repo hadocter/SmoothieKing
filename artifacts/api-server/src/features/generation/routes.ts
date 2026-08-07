@@ -6,7 +6,7 @@ import { GOALS, GOAL_MATCH_THRESHOLD, MAX_OFFERED } from "../scoring/index.ts";
 import { loadCatalog } from "../catalog/index.ts";
 import { scoresOf } from "../recommendation/index.ts";
 import { PRESETS, type BuildProfile, type Preset } from "./builder.ts";
-import { generateBatch, DEFAULT_BATCH } from "./generate.ts";
+import { generateBatch, applyNaming, presentation, DEFAULT_BATCH } from "./generate.ts";
 
 const router: IRouter = Router();
 
@@ -75,11 +75,13 @@ router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest,
   const seedBase = typeof body.seedBase === "number" ? Math.floor(body.seedBase) : Date.now() % 100000;
 
   const catalog = await loadCatalog();
-  const batch = generateBatch(buildProfileFrom(body, goal, profile), catalog, {
-    preset,
-    count,
-    seedBase,
-  });
+  const buildProfile = buildProfileFrom(body, goal, profile);
+  const built = generateBatch(buildProfile, catalog, { preset, count, seedBase });
+
+  // Named after building, and only what is worth offering — see applyNaming.
+  const batch = (await applyNaming(built.slice(0, MAX_OFFERED), buildProfile, preset))
+    .concat(built.slice(MAX_OFFERED))
+    .map((d) => d);
 
   if (batch.length === 0) {
     // Reached when the constraints leave nothing to build with — every liquid
@@ -93,7 +95,7 @@ router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest,
     return;
   }
 
-  const rows = batch.map((r) => ({ ...r, createdByUserId: req.user?.userId ?? null }));
+  const rows = batch.map(({ recipe }) => ({ ...recipe, createdByUserId: req.user?.userId ?? null }));
 
   // Same drink, same slug: a batch often rediscovers a build from a different
   // seed, and two rows for one recipe would be two entries in a history that
@@ -105,11 +107,12 @@ router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest,
   const stored = await db
     .select()
     .from(recipesTable)
-    .where(inArray(recipesTable.slug, batch.map((r) => r.slug)));
+    .where(inArray(recipesTable.slug, batch.map((d) => d.recipe.slug)));
 
   const bySlug = new Map(stored.map((r) => [r.slug, r]));
+  const look = new Map(batch.map((d) => [d.recipe.slug, presentation(d, catalog)]));
   const ordered = batch
-    .map((r) => bySlug.get(r.slug))
+    .map((d) => bySlug.get(d.recipe.slug))
     .filter((r): r is Recipe => r !== undefined);
 
   const above = ordered.filter((r) => (scoresOf(r)[goal] ?? 0) >= GOAL_MATCH_THRESHOLD);
@@ -123,7 +126,13 @@ router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest,
     // batch of two.
     generatedCount: ordered.length,
     matchCount: above.length,
-    recipes: above.slice(0, MAX_OFFERED).map((r) => ({ ...r, matchScore: scoresOf(r)[goal] ?? 0 })),
+    recipes: above.slice(0, MAX_OFFERED).map((r) => ({
+      ...r,
+      matchScore: scoresOf(r)[goal] ?? 0,
+      // Derived from the drink's own ingredients, so a card looks like what is
+      // in it and a published recipe has something to show without a photo.
+      ...look.get(r.slug),
+    })),
   });
 });
 

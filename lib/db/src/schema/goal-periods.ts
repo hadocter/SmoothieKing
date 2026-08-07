@@ -1,0 +1,62 @@
+import { pgTable, serial, integer, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { usersTable } from "./users";
+
+/**
+ * A goal, and the stretch of time someone is pursuing it for.
+ *
+ * It used to be a column on the profile, alongside height and allergies. That
+ * put it in the wrong category: height is a fact about a person and "eight
+ * weeks of working on gut health" is something they are currently doing. A
+ * profile field has no beginning, no end and no history, so there was nowhere
+ * to say when a goal started, nothing to count down, and no record of what
+ * someone was working on last spring.
+ *
+ * Rows are kept after they end. The point of committing to something for eight
+ * weeks is being able to look back at the eight weeks, and deleting the row on
+ * expiry would delete exactly that.
+ */
+export const goalPeriodsTable = pgTable("goal_periods", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+
+  /** One of the eight goal ids. */
+  goal: text("goal").notNull(),
+
+  /**
+   * How long they committed to. Weeks rather than an end date, because that is
+   * the unit the choice is made in — nobody picks the 14th of March, they pick
+   * "about two months".
+   */
+  weeks: integer("weeks").notNull(),
+
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+
+  /**
+   * Set when a period is ended early or replaced. Null while running.
+   *
+   * Separate from `startedAt + weeks` passing, which is a period that finished
+   * as intended. Both stop being current; only one of them is abandonment, and
+   * flattening the two would lose which happened.
+   */
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+
+  /**
+   * The one the app builds around right now.
+   *
+   * Denormalised on purpose. "The most recent row that has not expired" is
+   * derivable but changes meaning at midnight without anything writing to the
+   * database, and a recommendation flow that silently switches goals because a
+   * clock ticked is worse than one that waits to be told.
+   */
+  active: boolean("active").notNull().default(true),
+});
+
+export const insertGoalPeriodSchema = createInsertSchema(goalPeriodsTable).omit({
+  id: true,
+  startedAt: true,
+  endedAt: true,
+});
+export type InsertGoalPeriod = z.infer<typeof insertGoalPeriodSchema>;
+export type GoalPeriod = typeof goalPeriodsTable.$inferSelect;

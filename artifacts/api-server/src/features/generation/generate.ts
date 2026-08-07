@@ -19,13 +19,14 @@
 import { createHash } from "node:crypto";
 import {
   buildSmoothie,
-  recipeName,
   type BuildProfile,
   type BuildResult,
   type BuildableIngredient,
   type Preset,
 } from "./builder.ts";
 import { scoreRecipe, resolveItems, GOAL_MATCH_THRESHOLD, type GoalScores } from "../scoring/index.ts";
+import { fallbackNaming, nameDrink } from "../naming/index.ts";
+import { appearanceOf, representativeIngredients } from "./appearance.ts";
 
 /** How many variants a batch produces before ranking. */
 export const DEFAULT_BATCH = 10;
@@ -132,7 +133,10 @@ export function generateOne(
   return {
     result,
     recipe: {
-      name: recipeName(result, profile),
+      // A deterministic placeholder, replaced by `applyNaming` for the drinks
+      // that are actually offered. Building stays synchronous and testable
+      // without a network; naming is a separate step that may fail.
+      name: fallbackNaming({ picks: result.picks, goal: profile.primaryGoal, subGoals: profile.secondaryGoals, preset }).name,
       slug: slugFor(profile.primaryGoal, result.picks.map((p) => p.name)),
       category: CATEGORY[preset],
       // Stated plainly rather than written in the app's marketing voice. A
@@ -176,27 +180,115 @@ export function generateOne(
  * small place — so identical builds collapse by slug rather than being offered
  * twice with different numbers on them.
  */
+/**
+ * A generated drink: the row that gets stored, and how it was built.
+ *
+ * The picks come back alongside because two things downstream need them and
+ * the stored row cannot answer either. The gradient is derived from the
+ * ingredients' colours, and naming reads slots to know which ingredient is the
+ * base — neither is recoverable from a list of `{name, amount, unit}`.
+ */
+export interface GeneratedDrink {
+  recipe: GeneratedRecipe;
+  result: BuildResult;
+}
+
 export function generateBatch(
   profile: BuildProfile,
   catalog: BuildableIngredient[],
   options: { preset?: Preset; count?: number; seedBase?: number } = {},
-): GeneratedRecipe[] {
+): GeneratedDrink[] {
   const count = options.count ?? DEFAULT_BATCH;
   const seedBase = options.seedBase ?? 0;
 
-  const bySlug = new Map<string, GeneratedRecipe>();
+  const bySlug = new Map<string, GeneratedDrink>();
   for (let n = 0; n < count; n += 1) {
-    const { recipe } = generateOne(profile, catalog, {
+    const drink = generateOne(profile, catalog, {
       preset: options.preset,
       seed: seedBase + n,
     });
-    if (recipe.ingredients.length === 0) continue;
-    if (!bySlug.has(recipe.slug)) bySlug.set(recipe.slug, recipe);
+    if (drink.recipe.ingredients.length === 0) continue;
+    if (!bySlug.has(drink.recipe.slug)) bySlug.set(drink.recipe.slug, drink);
   }
 
   return [...bySlug.values()].sort(
     (a, b) =>
-      (b.goalScores[profile.primaryGoal] ?? 0) - (a.goalScores[profile.primaryGoal] ?? 0) ||
-      a.slug.localeCompare(b.slug),
+      (b.recipe.goalScores[profile.primaryGoal] ?? 0) - (a.recipe.goalScores[profile.primaryGoal] ?? 0) ||
+      a.recipe.slug.localeCompare(b.recipe.slug),
   );
+}
+
+/**
+ * Names and describes a set of drinks with the model, in parallel.
+ *
+ * Applied to the drinks that are actually offered rather than to the whole
+ * batch. A batch of ten shows six, and ten model calls to name four drinks
+ * nobody will read is cost for nothing — the unoffered ones keep the
+ * deterministic name they were built with, which is a real name rather than a
+ * placeholder.
+ *
+ * Parallel and individually fault-tolerant: `nameDrink` never throws, so one
+ * slow or failed call costs one plain name rather than the whole screen.
+ */
+export async function applyNaming(
+  drinks: GeneratedDrink[],
+  profile: BuildProfile,
+  preset: Preset,
+): Promise<GeneratedDrink[]> {
+  const named = await Promise.all(
+    drinks.map(async (drink) => {
+      const { name, story } = await nameDrink({
+        picks: drink.result.picks,
+        goal: profile.primaryGoal,
+        subGoals: profile.secondaryGoals,
+        preset,
+      });
+      return { drink, name, story };
+    }),
+  );
+
+  // Names have to be distinct within a batch, and they are not by default:
+  // the drinks in a batch are similar by construction, so the model naming
+  // them independently produces collisions — two of six came back as
+  // "Blueberry Banana Boost" on the first real run. Two identically-named
+  // cards on a choosing screen is not a cosmetic problem; it makes the choice
+  // impossible to reason about.
+  //
+  // A collision falls back to the deterministic ingredient name, which is
+  // derived from the picks and therefore differs whenever the drinks do.
+  const taken = new Set<string>();
+  return named.map(({ drink, name, story }) => {
+    let final = name;
+    if (taken.has(final.toLowerCase())) {
+      final = fallbackNaming({
+        picks: drink.result.picks,
+        goal: profile.primaryGoal,
+        subGoals: profile.secondaryGoals,
+        preset,
+      }).name;
+    }
+    // Two drinks that are genuinely the same shape can still collide; the
+    // distinguishing ingredient is the honest tiebreak.
+    if (taken.has(final.toLowerCase())) {
+      const extra = drink.result.picks.find((p) => !final.toLowerCase().includes(p.name.toLowerCase()));
+      if (extra) final = `${final} with ${extra.name}`;
+    }
+    taken.add(final.toLowerCase());
+    return { ...drink, recipe: { ...drink.recipe, name: final, description: story } };
+  });
+}
+
+/**
+ * How a drink should look and what to call its ingredients on a card.
+ *
+ * Derived rather than stored: it is a pure function of the picks, and a column
+ * would be a copy that could disagree with them after an edit.
+ */
+export function presentation(drink: GeneratedDrink, catalog: BuildableIngredient[]) {
+  const hexOf = (name: string): string | null =>
+    catalog.find((c) => c.name === name)?.hex ?? null;
+  return {
+    appearance: appearanceOf(drink.result.picks, hexOf),
+    representativeIngredients: representativeIngredients(drink.result.picks),
+  };
 }

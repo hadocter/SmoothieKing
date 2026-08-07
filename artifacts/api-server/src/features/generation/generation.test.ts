@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildSmoothie, recipeName, type BuildProfile, type BuildableIngredient } from "./builder.ts";
+import { buildSmoothie, type BuildProfile, type BuildableIngredient } from "./builder.ts";
 import { generateBatch, generateOne } from "./generate.ts";
 import { GOALS } from "../scoring/index.ts";
 
@@ -146,11 +146,6 @@ test("an empty catalog produces an empty build rather than throwing", () => {
   assert.equal(result.totalGrams, 0);
 });
 
-test("the name is the placeholder until a model writes one", () => {
-  const result = buildSmoothie(profile(), CATALOG);
-  assert.equal(recipeName(result, profile()), "testname:llm");
-});
-
 /* ---- generation ---- */
 
 test("a generated recipe is shaped like a recipe row", () => {
@@ -177,7 +172,7 @@ test("the same drink always gets the same slug, so a batch stores it once", () =
 });
 
 test("a batch deduplicates and ranks on the main goal", () => {
-  const batch = generateBatch(profile({ primaryGoal: "protein-power" }), CATALOG, { count: 10 });
+  const batch = generateBatch(profile({ primaryGoal: "protein-power" }), CATALOG, { count: 10 }).map((d) => d.recipe);
   assert.ok(batch.length > 0);
   assert.equal(new Set(batch.map((r) => r.slug)).size, batch.length, "duplicates survived");
   for (let i = 1; i < batch.length; i += 1) {
@@ -189,13 +184,13 @@ test("a batch deduplicates and ranks on the main goal", () => {
 });
 
 test("a batch is reproducible from its seed base", () => {
-  const a = generateBatch(profile(), CATALOG, { count: 6, seedBase: 100 }).map((r) => r.slug);
-  const b = generateBatch(profile(), CATALOG, { count: 6, seedBase: 100 }).map((r) => r.slug);
+  const a = generateBatch(profile(), CATALOG, { count: 6, seedBase: 100 }).map((d) => d.recipe.slug);
+  const b = generateBatch(profile(), CATALOG, { count: 6, seedBase: 100 }).map((d) => d.recipe.slug);
   assert.deepEqual(a, b);
 });
 
 test("generated recipes never contain a stated allergen", () => {
-  const batch = generateBatch(profile({ primaryGoal: "protein-power", allergies: ["Dairy"] }), CATALOG, { count: 10 });
+  const batch = generateBatch(profile({ primaryGoal: "protein-power", allergies: ["Dairy"] }), CATALOG, { count: 10 }).map((d) => d.recipe);
   const dairy = new Set(CATALOG.filter((i) => i.contains.includes("dairy")).map((i) => i.name));
   for (const recipe of batch) {
     for (const item of recipe.ingredients) {
