@@ -91,9 +91,15 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
     .set({ active: false, endedAt: new Date() })
     .where(and(eq(goalPeriodsTable.userId, req.user!.userId), eq(goalPeriodsTable.active, true)));
 
+  // Kept verbatim and capped, never parsed. Its only job is to be shown back.
+  const narrative =
+    typeof body.narrative === "string" && body.narrative.trim()
+      ? body.narrative.trim().slice(0, 300)
+      : null;
+
   const [created] = await db
     .insert(goalPeriodsTable)
-    .values({ userId: req.user!.userId, goal: body.goal, weeks: body.weeks, active: true })
+    .values({ userId: req.user!.userId, goal: body.goal, weeks: body.weeks, narrative, active: true })
     .returning();
 
   // The profile keeps a `primaryGoal` column that several readers still use.

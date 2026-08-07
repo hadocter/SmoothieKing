@@ -6,6 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GOAL_COLORS, GOAL_HEX } from "@/lib/colors";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, Check, Info } from "lucide-react";
+import { AssistBox } from "@/features/elicitation";
+import { GoalBanner } from "@/features/goals/GoalBanner";
 import {
   getActiveGoal,
   getGoalCatalog,
@@ -38,6 +40,14 @@ export default function Goal() {
 
   const [goal, setGoal] = useState<string | null>(null);
   const [weeks, setWeeks] = useState<number | null>(null);
+  /**
+   * What they typed, kept whether or not the model mapped it.
+   *
+   * The suggestion picks the category; this is the sentence that gets shown
+   * back to them afterwards. Losing it would mean every later screen greets
+   * them in a vocabulary they never used.
+   */
+  const [narrative, setNarrative] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -56,6 +66,7 @@ export default function Goal() {
         if (active) {
           setGoal(active.goal);
           setWeeks(active.weeks);
+          setNarrative(active.narrative ?? "");
         }
       } catch {
         if (!cancelled) setFailed(true);
@@ -72,7 +83,7 @@ export default function Goal() {
     if (!goal || !weeks || saving) return;
     setSaving(true);
     try {
-      const period = await startGoal(goal, weeks, token);
+      const period = await startGoal(goal, weeks, token, narrative.trim() || null);
       setCurrent(period);
       toast({
         title: "Set",
@@ -136,27 +147,23 @@ export default function Goal() {
       </div>
 
       {current && (
-        <div className="mb-10 rounded-2xl border bg-card p-5 flex items-center gap-4 flex-wrap">
-          <span
-            className="w-10 h-10 rounded-full shrink-0"
-            style={{ background: GOAL_HEX[current.goal] ?? "#ccc" }}
-          />
-          <div className="flex-1 min-w-[12rem]">
-            <div className="font-serif text-xl font-medium">{current.copy?.label ?? current.goal}</div>
-            <div className="text-sm text-muted-foreground">
-              Day {current.daysElapsed + 1} of {current.weeks * 7} — {current.daysRemaining} to go
-            </div>
-          </div>
-          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-700"
-              style={{
-                width: `${Math.min(100, Math.round((current.daysElapsed / (current.weeks * 7)) * 100))}%`,
-              }}
-            />
-          </div>
+        <div className="mb-10">
+          <GoalBanner period={current} />
         </div>
       )}
+
+      <div className="mb-8">
+        <AssistBox
+          step="goals"
+          placeholder="e.g. I keep crashing at 3pm and can't focus in meetings"
+          onAccept={(ids, text) => {
+            if (ids[0]) setGoal(ids[0]);
+            // Their sentence, kept. The suggestion decided the category; this
+            // is what gets shown back to them from here on.
+            if (text) setNarrative(text);
+          }}
+        />
+      </div>
 
       <div className="grid sm:grid-cols-2 gap-4 mb-10">
         {catalog.goals.map((g) => {
@@ -183,6 +190,16 @@ export default function Goal() {
           );
         })}
       </div>
+
+      {narrative.trim() && (
+        <div className="mb-10 rounded-2xl bg-muted/40 border p-4">
+          <p className="text-sm text-muted-foreground mb-1">You said</p>
+          <p className="font-serif text-lg">&ldquo;{narrative.trim()}&rdquo;</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            We&apos;ll show this back to you rather than the category name.
+          </p>
+        </div>
+      )}
 
       <div className="mb-10">
         <h3 className="text-sm font-semibold mb-1">For how long?</h3>

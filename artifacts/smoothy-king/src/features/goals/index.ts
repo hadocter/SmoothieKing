@@ -29,6 +29,8 @@ export interface GoalCatalog {
 export interface GoalPeriod {
   id: number;
   goal: string;
+  /** What they said they were after, verbatim. Null if they tapped a card. */
+  narrative: string | null;
   weeks: number;
   startedAt: string;
   endedAt: string | null;
@@ -48,8 +50,13 @@ export const getActiveGoal = (token: string | null): Promise<GoalPeriod | null> 
 export const getGoalHistory = (token: string | null): Promise<GoalPeriod[]> =>
   apiFetch<GoalPeriod[]>("/api/goals/history", token);
 
-export const startGoal = (goal: string, weeks: number, token: string | null): Promise<GoalPeriod> =>
-  apiFetch<GoalPeriod>("/api/goals", token, { method: "POST", body: { goal, weeks } });
+export const startGoal = (
+  goal: string,
+  weeks: number,
+  token: string | null,
+  narrative?: string | null,
+): Promise<GoalPeriod> =>
+  apiFetch<GoalPeriod>("/api/goals", token, { method: "POST", body: { goal, weeks, narrative } });
 
 export const endGoal = (token: string | null): Promise<GoalPeriod> =>
   apiFetch<GoalPeriod>("/api/goals/end", token, { method: "POST", body: {} });

@@ -27,8 +27,14 @@ import { proposeOptions, type AssistResponse, type AssistStep } from "./index";
 interface Props {
   step: AssistStep;
   placeholder: string;
-  /** Called with the ids the user accepted. Never called on its own. */
-  onAccept: (ids: string[]) => void;
+  /**
+   * Called with the ids the user accepted, and the sentence they wrote.
+   *
+   * The text is passed through because a caller may want to keep it. The goal
+   * screen does: the ids decide the category, and the sentence is what gets
+   * shown back to the person afterwards instead of a taxonomy label.
+   */
+  onAccept: (ids: string[], text: string) => void;
 }
 
 export function AssistBox({ step, placeholder, onAccept }: Props) {
@@ -57,7 +63,7 @@ export function AssistBox({ step, placeholder, onAccept }: Props) {
   function take(ids: string[]) {
     const fresh = ids.filter((id) => !taken.includes(id));
     if (fresh.length === 0) return;
-    onAccept(fresh);
+    onAccept(fresh, text.trim());
     setTaken((prev) => [...prev, ...fresh]);
   }
 

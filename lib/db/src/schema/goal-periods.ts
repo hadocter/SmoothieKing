@@ -25,6 +25,21 @@ export const goalPeriodsTable = pgTable("goal_periods", {
   goal: text("goal").notNull(),
 
   /**
+   * What the user actually said they were after, in their own words.
+   *
+   * The eight goals are a vocabulary the system can compute with; "I keep
+   * crashing at 3pm and can't focus in meetings" is what the person came here
+   * about. Storing only the category throws away everything that made their
+   * answer theirs, and then every screen has to address them in a taxonomy
+   * they never used.
+   *
+   * Null when they simply tapped a card, which is a real and common way to
+   * answer. Nothing infers a narrative that was not written — a sentence put
+   * in someone's mouth reads far worse than no sentence at all.
+   */
+  narrative: text("narrative"),
+
+  /**
    * How long they committed to. Weeks rather than an end date, because that is
    * the unit the choice is made in — nobody picks the 14th of March, they pick
    * "about two months".
