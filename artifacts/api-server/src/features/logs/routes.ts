@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db, smoothieLogsTable, recipesTable } from "@workspace/db";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
 
 const router: IRouter = Router();
 

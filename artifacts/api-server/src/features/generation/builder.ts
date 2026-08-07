@@ -25,7 +25,7 @@ import {
   constraintsFrom,
   type CheckableIngredient,
   type SafetyConstraints,
-} from "./safety.ts";
+} from "../safety/index.ts";
 
 export interface BuildProfile {
   primaryGoal: string;

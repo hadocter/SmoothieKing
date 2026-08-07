@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ShieldCheck, ShieldAlert, Check, X, Loader2 } from "lucide-react";
+import { hasConstraints, type SafetyReport } from "./index";
 
 /**
  * The allergen check, shown happening.
@@ -18,23 +19,6 @@ import { ShieldCheck, ShieldAlert, Check, X, Loader2 } from "lucide-react";
  * Respects prefers-reduced-motion by showing the finished result immediately.
  */
 
-interface IngredientCheck {
-  name: string;
-  contains: string[];
-  animal: boolean;
-  violations: string[];
-  passed: boolean;
-}
-
-export interface SafetyReport {
-  safe: boolean;
-  checks: IngredientCheck[];
-  unknownIngredients: string[];
-  unresolvedConstraints: string[];
-  blockedBy: string[];
-  checkedAgainst: { allergens: string[]; excludedNames: string[]; vegan: boolean };
-}
-
 const STEP_MS = 420;
 
 function prefersReducedMotion(): boolean {
@@ -42,10 +26,7 @@ function prefersReducedMotion(): boolean {
 }
 
 export function AllergenScan({ report }: { report: SafetyReport }) {
-  const stated =
-    report.checkedAgainst.allergens.length > 0 ||
-    report.checkedAgainst.excludedNames.length > 0 ||
-    report.checkedAgainst.vegan;
+  const stated = hasConstraints(report);
 
   const [revealed, setRevealed] = useState(0);
   const timer = useRef<number | null>(null);

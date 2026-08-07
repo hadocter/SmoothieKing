@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Check } from "lucide-react";
+import { proposeOptions, type AssistResponse, type AssistStep } from "./index";
 
 /**
  * A second way to answer an onboarding step: say it in your own words.
@@ -17,22 +18,8 @@ import { Sparkles, Check } from "lucide-react";
  * form was already complete without this.
  */
 
-interface ProposedOption {
-  id: string;
-  label: string;
-}
-
-interface AssistResponse {
-  proposed: ProposedOption[];
-  confidence: "high" | "medium" | "low";
-  message: string;
-  outOfDomain: boolean;
-  unmappedText: string;
-}
-
 interface Props {
-  /** One of: activity, allergies, goals, taste. */
-  step: string;
+  step: AssistStep;
   placeholder: string;
   /** Called with the ids the user accepted. Never called on its own. */
   onAccept: (ids: string[]) => void;
@@ -50,13 +37,7 @@ export function AssistBox({ step, placeholder, onAccept }: Props) {
     setFailed(false);
     setResult(null);
     try {
-      const res = await fetch("/api/onboarding/assist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step, text: text.trim() }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      setResult((await res.json()) as AssistResponse);
+      setResult(await proposeOptions(step, text.trim()));
     } catch {
       setFailed(true);
     } finally {

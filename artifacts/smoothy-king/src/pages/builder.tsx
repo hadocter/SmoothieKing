@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AllergenScan, type SafetyReport } from "@/components/builder/allergen-scan";
+import { AllergenScan, verifyIngredients, type SafetyReport } from "@/features/safety";
 
 // Animation utility class for bouncing elements
 const bounceClass = "animate-in zoom-in-95 duration-300";
@@ -46,20 +46,15 @@ export default function Builder() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/safety/verify", {
-          method: "POST",
-          // The same bearer token the generated client attaches. Without it the
-          // server has no profile to check against, and a check with nothing to
-          // check against reports "clear" — which is exactly the reassuring,
-          // wrong answer this whole feature exists to avoid.
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ ingredients: selectedIngredients.map((i) => ({ name: i.name })) }),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        const report = (await res.json()) as SafetyReport;
+        // Goes through the feature's client, which attaches the same bearer
+        // token the generated client uses. Without it the server has no profile
+        // to check against, and a check with nothing to check against reports
+        // "clear" — the reassuring wrong answer this whole feature exists to
+        // avoid.
+        const report = await verifyIngredients(
+          selectedIngredients.map((i) => i.name),
+          token,
+        );
         if (!cancelled) {
           setSafety(report);
           setSafetyFailed(false);

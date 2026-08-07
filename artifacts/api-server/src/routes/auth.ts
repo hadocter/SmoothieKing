@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, usersTable, type User } from "@workspace/db";
-import { hashPassword, verifyPassword, createToken } from "../lib/auth";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { hashPassword, verifyPassword, createToken } from "../lib/auth.ts";
+import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
 import { SignupBody, LoginBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();

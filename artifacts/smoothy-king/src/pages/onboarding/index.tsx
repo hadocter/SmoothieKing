@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ArrowLeft, User, Ruler, Weight, Activity, Sparkles, Check, X, Heart, UserCircle } from "lucide-react";
 import { GOALS, GOAL_COLORS, GOAL_LABELS, GOAL_HEX } from "@/lib/colors";
 import { useToast } from "@/hooks/use-toast";
-import { AssistBox } from "@/components/onboarding/assist-box";
+import { AssistBox } from "@/features/elicitation";
 
 const bounceClass = "animate-in zoom-in-95 duration-300";
 

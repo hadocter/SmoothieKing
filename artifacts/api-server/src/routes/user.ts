@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, userProfilesTable, type UserProfile } from "@workspace/db";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
 import { SubmitOnboardingBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();

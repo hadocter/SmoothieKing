@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 
@@ -23,40 +23,55 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const AUTH_TOKEN_KEY = "smoothy_king_token";
 const AUTH_USER_KEY = "smoothy_king_user";
 
+/**
+ * The token, at module scope, registered with the API client at import time.
+ *
+ * It used to be a ref registered from a `useEffect` inside the provider, and
+ * that is one tick too late: React runs child effects before parent effects,
+ * so every page's `useQuery` fired before the provider had told the client
+ * where to find a token. The first request of every page load went out
+ * unauthenticated and came back 401, which the profile screens then rendered
+ * as "you have not set a profile" — to people who had.
+ *
+ * Registering here happens before any component renders, so there is no
+ * ordering to get wrong.
+ */
+const tokenRef: { current: string | null } = { current: null };
+setAuthTokenGetter(() => tokenRef.current);
+
+/** Read synchronously, for the same reason. */
+function readStoredAuth(): { token: string | null; user: AuthUser | null } {
+  const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  const storedUser = localStorage.getItem(AUTH_USER_KEY);
+  if (!storedToken || !storedUser) return { token: null, user: null };
+  try {
+    return { token: storedToken, user: JSON.parse(storedUser) as AuthUser };
+  } catch {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+    return { token: null, user: null };
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // The initializer runs during the first render, before any child renders and
+  // therefore before any child can fire a request. Restoring in an effect meant
+  // the session was not there yet when it was first needed.
+  const [restored] = useState(readStoredAuth);
+  const [user, setUser] = useState<AuthUser | null>(restored.user);
+  const [token, setToken] = useState<string | null>(restored.token);
   const queryClient = useQueryClient();
 
-  // The API client reads the token through this ref, so it always sees the
-  // current value — a state closure would still hold the old token for requests
-  // fired in the same tick as login().
-  const tokenRef = useRef<string | null>(null);
+  // Kept in the context for callers that already read it. Nothing is loaded
+  // asynchronously any more, so it is never true — retained rather than removed
+  // because several pages gate on it and flipping them is a separate change.
+  const isLoading = false;
 
-  useEffect(() => {
-    setAuthTokenGetter(() => tokenRef.current);
-    return () => setAuthTokenGetter(null);
-  }, []);
-
-  // Restore auth state from localStorage on mount
-  useEffect(() => {
-    const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-    const storedUser = localStorage.getItem(AUTH_USER_KEY);
-
-    if (storedToken && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser) as AuthUser;
-        tokenRef.current = storedToken;
-        setToken(storedToken);
-        setUser(parsedUser);
-      } catch {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        localStorage.removeItem(AUTH_USER_KEY);
-      }
-    }
-    setIsLoading(false);
-  }, []);
+  // Follows the current token, not the restored one — assigning `restored`
+  // here would undo a fresh login on the next render. `login` and `logout`
+  // still set the ref directly so a request fired in the same tick as either
+  // one already carries the right value, before any re-render happens.
+  tokenRef.current = token;
 
   const login = useCallback((newUser: AuthUser, newToken: string) => {
     // Set the ref before clearing so any refetch triggered below already

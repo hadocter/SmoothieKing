@@ -25,7 +25,7 @@ import {
   type BuildableIngredient,
   type Preset,
 } from "./builder.ts";
-import { scoreRecipe, resolveItems, GOAL_MATCH_THRESHOLD, type GoalScores } from "./scoring.ts";
+import { scoreRecipe, resolveItems, GOAL_MATCH_THRESHOLD, type GoalScores } from "../scoring/index.ts";
 
 /** How many variants a batch produces before ranking. */
 export const DEFAULT_BATCH = 10;

@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, ingredientsTable, userProfilesTable } from "@workspace/db";
-import { optionalAuth, type AuthenticatedRequest } from "../middlewares/auth";
-import { checkRecipe, constraintsFrom, type CheckableIngredient } from "../lib/safety";
+import { optionalAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
+import { checkRecipe, constraintsFrom, type CheckableIngredient } from "./safety.ts";
 
 const router: IRouter = Router();
 

@@ -1,6 +1,6 @@
-import app from "./app";
-import { logger } from "./lib/logger";
-import { seed } from "./lib/seed";
+import app from "./app.ts";
+import { logger } from "./lib/logger.ts";
+import { seed } from "./lib/seed.ts";
 
 const rawPort = process.env["PORT"];
 

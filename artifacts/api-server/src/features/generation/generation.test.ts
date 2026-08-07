@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildSmoothie, recipeName, type BuildProfile, type BuildableIngredient } from "./builder.ts";
 import { generateBatch, generateOne } from "./generate.ts";
-import { GOALS } from "./scoring.ts";
+import { GOALS } from "../scoring/index.ts";
 
 function ing(
   name: string,

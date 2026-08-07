@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, favoritesTable } from "@workspace/db";
-import { requireAuth, optionalAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, optionalAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
 import { AddFavoriteBody, RemoveFavoriteParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();

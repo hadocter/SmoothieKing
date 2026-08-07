@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { logger } from "../lib/logger";
-import { STEP_KEYS, stepByKey } from "../lib/llm/steps";
-import { KeywordAssistProvider, resolveProvider } from "../lib/llm/provider";
+import { logger } from "../../lib/logger.ts";
+import { STEP_KEYS, stepByKey } from "./steps.ts";
+import { KeywordAssistProvider, resolveProvider } from "./provider.ts";
 
 const router: IRouter = Router();
 

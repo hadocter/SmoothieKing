@@ -1,6 +1,6 @@
 import { db, recipesTable, ingredientsTable, creationsTable, plansTable } from "@workspace/db";
-import { logger } from "./logger";
-import { resolveItems, scoreRecipe } from "./scoring";
+import { logger } from "./logger.ts";
+import { resolveItems, scoreRecipe } from "../features/scoring/index.ts";
 
 /**
  * Ingredients: SmoothieKing's original 15 plus 28 from the elicitation

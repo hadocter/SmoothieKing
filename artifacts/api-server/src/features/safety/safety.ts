@@ -34,7 +34,7 @@
  * where an allergy is quietly dropped.
  */
 
-import type { ScorableIngredient } from "./scoring.ts";
+import type { ScorableIngredient } from "../scoring/index.ts";
 
 /**
  * Onboarding's allergy labels to catalog allergen ids.
