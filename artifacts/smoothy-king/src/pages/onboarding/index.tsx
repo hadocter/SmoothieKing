@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ArrowLeft, User, Ruler, Weight, Activity, Sparkles, Check, X, Heart, UserCircle } from "lucide-react";
 import { GOALS, GOAL_COLORS, GOAL_LABELS, GOAL_HEX } from "@/lib/colors";
 import { useToast } from "@/hooks/use-toast";
+import { AssistBox } from "@/components/onboarding/assist-box";
 
 const bounceClass = "animate-in zoom-in-95 duration-300";
 
@@ -316,6 +317,13 @@ export default function Onboarding() {
                 <label className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <Activity className="w-4 h-4 text-primary" /> Activity Level
                 </label>
+                <AssistBox
+                  step="activity"
+                  placeholder="e.g. I lift four times a week and cycle to work"
+                  // Single choice, so this replaces rather than adds. The
+                  // server already returns at most one id for this step.
+                  onAccept={(ids) => ids[0] && updateData({ activityLevel: ids[0] })}
+                />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {ACTIVITY_LEVELS.map((a) => (
                     <button
@@ -360,6 +368,16 @@ export default function Onboarding() {
               <h3 className="text-sm uppercase tracking-widest font-bold text-muted-foreground mb-4 border-b pb-2">
                 Allergens
               </h3>
+              <AssistBox
+                step="allergies"
+                placeholder="e.g. I can't do milk or anything with wheat in it"
+                // Union, never replacement. A suggestion may add an allergen
+                // the user then unticks themselves; it must not be able to
+                // clear one they had already chosen.
+                onAccept={(ids) =>
+                  updateData({ allergies: [...new Set([...data.allergies, ...ids])] })
+                }
+              />
               <div className="flex flex-wrap gap-3">
                 {ALLERGY_PRESETS.map((item) => {
                   const isSelected = data.allergies.includes(item);
@@ -432,6 +450,25 @@ export default function Onboarding() {
               <Button variant="outline" onClick={() => setStep(2)} className="rounded-full">Back</Button>
             </div>
 
+            <AssistBox
+              step="goals"
+              placeholder="e.g. I keep bloating after lunch and I crash around 3pm"
+              onAccept={(ids) => {
+                // The step asks two questions at once and the sentence rarely
+                // separates them. The first suggestion fills the primary focus
+                // only while it is still empty — overwriting a goal someone
+                // already picked would be the assistant undoing their choice —
+                // and the rest are offered as secondary.
+                const [head, ...tail] = ids;
+                const primaryGoal = data.primaryGoal || head;
+                const extras = (data.primaryGoal ? ids : tail).filter((g) => g !== primaryGoal);
+                updateData({
+                  primaryGoal,
+                  secondaryGoals: [...new Set([...data.secondaryGoals, ...extras])],
+                });
+              }}
+            />
+
             {/* Primary Goal */}
             <div className="mb-10">
               <h3 className="text-sm font-semibold mb-4">Primary Focus (Select 1)</h3>
@@ -480,6 +517,13 @@ export default function Onboarding() {
             {/* Taste Preference */}
             <div>
               <h3 className="text-sm font-semibold mb-4">Taste Profile (Multiple Selection)</h3>
+              <AssistBox
+                step="taste"
+                placeholder="e.g. I like it tart, not sugary at all"
+                onAccept={(ids) =>
+                  updateData({ tastePreference: [...new Set([...data.tastePreference, ...ids])] })
+                }
+              />
               <div className="grid grid-cols-2 gap-3">
                 {TASTE_OPTIONS.map((t) => {
                   const isSelected = data.tastePreference.includes(t.key);

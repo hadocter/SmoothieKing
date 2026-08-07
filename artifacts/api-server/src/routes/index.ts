@@ -7,6 +7,7 @@ import ingredientsRouter from "./ingredients";
 import favoritesRouter from "./favorites";
 import creationsRouter from "./creations";
 import membershipRouter from "./membership";
+import onboardingAssistRouter from "./onboarding-assist";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(ingredientsRouter);
 router.use(favoritesRouter);
 router.use(creationsRouter);
 router.use(membershipRouter);
+router.use(onboardingAssistRouter);
 
 export default router;
