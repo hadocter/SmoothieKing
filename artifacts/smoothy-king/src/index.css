@@ -57,6 +57,8 @@
   --color-goal-protein: hsl(var(--goal-protein));
   --color-goal-anti: hsl(var(--goal-anti));
   --color-goal-detox: hsl(var(--goal-detox));
+  --color-goal-gut: hsl(var(--goal-gut));
+  --color-goal-energy: hsl(var(--goal-energy));
 
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
@@ -110,6 +112,11 @@
   --goal-protein: 271 76% 53%; /* Deep violet/berry #8a2be2 */
   --goal-anti: 46 100% 50%; /* Turmeric gold #ffc300 */
   --goal-detox: 78 61% 50%; /* Matcha green #9acd32 */
+  /* Two axes the Gen Z research put ahead of most of the list above: gut
+     health as the fastest-growing concern, and energy/focus alongside it.
+     Hues chosen to sit clear of the six already here. */
+  --goal-gut: 14 65% 62%; /* Terracotta/kefir #d97a5c */
+  --goal-energy: 199 89% 48%; /* Electric blue #0ea5e9 */
 
   --radius: 0.5rem;
 

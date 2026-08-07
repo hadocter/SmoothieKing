@@ -13,7 +13,7 @@ export const userProfilesTable = pgTable("user_profiles", {
   activityLevel: text("activity_level"),             // sedentary | light | moderate | active | very_active
   allergies: text("allergies").array().notNull().default([]),
   dislikedIngredients: text("disliked_ingredients").array().notNull().default([]),
-  primaryGoal: text("primary_goal"),                 // glowy-skin | hydration | sun-ritual | protein-power | anti-inflammatory | detox-clarity
+  primaryGoal: text("primary_goal"),                 // glowy-skin | hydration | sun-ritual | protein-power | anti-inflammatory | detox-clarity | gut-health | energy-focus
   secondaryGoals: text("secondary_goals").array().notNull().default([]),
   tastePreference: text("taste_preference").array().notNull().default([]),  // sweet | sour | nutty | fresh
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -684,7 +684,7 @@ components:
             type: string
         primaryGoal:
           type: string
-          description: "glowy-skin | hydration | sun-ritual | protein-power | anti-inflammatory | detox-clarity"
+          description: "glowy-skin | hydration | sun-ritual | protein-power | anti-inflammatory | detox-clarity | gut-health | energy-focus"
         secondaryGoals:
           type: array
           items:
