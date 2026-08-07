@@ -117,6 +117,40 @@ export const editRecipe = (
 ): Promise<BuiltDrink> =>
   apiFetch<BuiltDrink>(`/api/recipes/${id}`, token, { method: "PATCH", body: patch });
 
+/**
+ * Posts a published drink to the community board.
+ *
+ * A creation is the social object and a recipe is the drink; publishing has to
+ * make both, or the recipe becomes visible to nobody. Publishing used to flip
+ * a flag on the recipe alone, which is why a drink built, made and posted
+ * appeared in neither the board nor the profile.
+ */
+export const postToBoard = (
+  drink: BuiltDrink,
+  authorName: string,
+  goal: string,
+  body: { name: string; story: string; imageUrl: string },
+  token: string | null,
+): Promise<{ id: number }> =>
+  apiFetch<{ id: number }>("/api/creations", token, {
+    method: "POST",
+    body: {
+      name: body.name,
+      authorName,
+      goal,
+      story: body.story,
+      ingredients: drink.ingredients.map((i) => ({
+        name: i.name,
+        amount: i.amount,
+        unit: i.unit,
+        benefit: i.benefit,
+      })),
+      colorHex: drink.appearance?.blend ?? "#3B82F6",
+      recipeId: drink.id,
+      imageUrl: body.imageUrl,
+    },
+  });
+
 export const publishRecipe = (id: number, token: string | null): Promise<BuiltDrink> =>
   apiFetch<BuiltDrink>(`/api/recipes/${id}/publish`, token, {
     method: "POST",

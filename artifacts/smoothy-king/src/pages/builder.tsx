@@ -16,6 +16,7 @@ import {
   findMatches,
   generateDrinks,
   logDrink,
+  postToBoard,
   presetForMinutes,
   publishRecipe,
   type BuiltDrink,
@@ -47,7 +48,7 @@ import { PublishForm } from "@/features/build/PublishForm";
 type Phase = "ask" | "building" | "choose" | "pour" | "make" | "publish" | "done";
 
 export default function Builder() {
-  const { token, isLoggedIn } = useAuth();
+  const { token, isLoggedIn, user } = useAuth();
   const { toast } = useToast();
 
   const [period, setPeriod] = useState<GoalPeriod | null>(null);
@@ -92,6 +93,16 @@ export default function Builder() {
     try {
       const updated = await editRecipe(chosen.id, patch, token);
       await publishRecipe(chosen.id, token);
+      // And onto the board. Two objects: the recipe is the drink, the creation
+      // is the post about it. Flipping the recipe's flag alone made it public
+      // in a place nobody looks.
+      await postToBoard(
+        { ...chosen, ...updated },
+        user?.nickname ?? "Someone",
+        period?.goal ?? "",
+        { name: patch.name, story: patch.description, imageUrl: patch.imageUrl },
+        token,
+      );
       // Carry the edit forward, or the confirmation screen congratulates them
       // on the name they just changed away from.
       setChosen({ ...chosen, ...updated });

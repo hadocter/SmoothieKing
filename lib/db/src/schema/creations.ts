@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { recipesTable } from "./recipes";
 
 export const creationsTable = pgTable("creations", {
   id: serial("id").primaryKey(),
@@ -12,6 +13,22 @@ export const creationsTable = pgTable("creations", {
   ingredients: jsonb("ingredients").notNull().default([]),
   likes: integer("likes").notNull().default(0),
   colorHex: text("color_hex"),
+
+  /**
+   * The recipe this was posted from, when it came out of the build flow.
+   *
+   * A creation is the social object — it has an author, a story and likes — and
+   * a recipe is the drink. They were entirely separate, which is why a drink
+   * built, made and published never reached the board: the flow wrote a recipe
+   * and the board reads creations. This is the join.
+   *
+   * Null for the seeded posts, which predate the build flow and have no recipe
+   * behind them.
+   */
+  recipeId: integer("recipe_id").references(() => recipesTable.id),
+
+  /** The photo, or empty for the ingredient-derived gradient. */
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
