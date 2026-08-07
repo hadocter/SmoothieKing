@@ -16,6 +16,7 @@ import { ArrowRight, ArrowLeft, User, Ruler, Weight, Activity, Sparkles, Check, 
 import { GOALS, GOAL_COLORS, GOAL_LABELS, GOAL_HEX } from "@/lib/colors";
 import { useToast } from "@/hooks/use-toast";
 import { AssistBox } from "@/features/elicitation";
+import { DislikePicker } from "@/features/dislikes/DislikePicker";
 
 const bounceClass = "animate-in zoom-in-95 duration-300";
 
@@ -404,27 +405,13 @@ export default function Onboarding() {
               <h3 className="text-sm uppercase tracking-widest font-bold text-muted-foreground mb-4 border-b pb-2">
                 Disliked Ingredients
               </h3>
-              <div className="flex flex-wrap gap-3">
-                {allIngredients?.map((item) => {
-                  const isSelected = data.dislikedIngredients.includes(item.name);
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() =>
-                        updateData({ dislikedIngredients: toggleArray(data.dislikedIngredients, item.name) })
-                      }
-                      className={`px-4 py-2.5 rounded-2xl border transition-all duration-200 text-sm font-medium flex items-center gap-2 ${
-                        isSelected
-                          ? "bg-muted text-muted-foreground border-border line-through opacity-60"
-                          : "bg-card hover:bg-muted border-transparent"
-                      }`}
-                    >
-                      {item.name}
-                      {isSelected && <X className="w-3.5 h-3.5" />}
-                    </button>
-                  );
-                })}
-              </div>
+              <DislikePicker
+                ingredients={allIngredients ?? []}
+                selected={data.dislikedIngredients}
+                onToggle={(name) =>
+                  updateData({ dislikedIngredients: toggleArray(data.dislikedIngredients, name) })
+                }
+              />
             </div>
 
             <div className="mt-12 flex justify-between border-t pt-6">

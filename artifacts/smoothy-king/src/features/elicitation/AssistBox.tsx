@@ -1,18 +1,24 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles, Check, Plus } from "lucide-react";
 import { proposeOptions, type AssistResponse, type AssistStep } from "./index";
 
 /**
  * A second way to answer an onboarding step: say it in your own words.
  *
  * The buttons below it are unchanged and remain the primary path. This box
- * highlights the ones a sentence points at — it never selects anything. The
- * user still taps, every time, and that is deliberate rather than an unfinished
- * state: an allergy that gets ticked on someone's behalf by a language model is
- * a different kind of mistake from a taste preference that does, and the only
- * shape that is safe for both is one where a proposal can offer and never set.
+ * offers the ones a sentence points at — it never selects anything on its own.
+ * The user taps, every time, and that is deliberate rather than an unfinished
+ * state: an allergy ticked on someone's behalf by a language model is a
+ * different kind of mistake from a taste preference that is, and the only
+ * shape safe for both is one where a proposal can offer and never set.
+ *
+ * Each suggestion is its own button. One "select these" for all of them made
+ * the common case — the model got two of three right — into all-or-nothing,
+ * so the choice was between accepting something wrong and re-typing the
+ * sentence. Tapping a chip applies that one and leaves the rest, and "take
+ * all" is there for when they are all right, which is most of the time.
  *
  * If the request fails, nothing changes on screen except a line saying so. The
  * form was already complete without this.
@@ -36,6 +42,7 @@ export function AssistBox({ step, placeholder, onAccept }: Props) {
     setPending(true);
     setFailed(false);
     setResult(null);
+    setTaken([]);
     try {
       setResult(await proposeOptions(step, text.trim()));
     } catch {
@@ -45,10 +52,21 @@ export function AssistBox({ step, placeholder, onAccept }: Props) {
     }
   }
 
-  function accept() {
-    if (!result || result.proposed.length === 0) return;
-    onAccept(result.proposed.map((o) => o.id));
+  const [taken, setTaken] = useState<string[]>([]);
+
+  function take(ids: string[]) {
+    const fresh = ids.filter((id) => !taken.includes(id));
+    if (fresh.length === 0) return;
+    onAccept(fresh);
+    setTaken((prev) => [...prev, ...fresh]);
+  }
+
+  /** Clears the panel once every suggestion has been dealt with. */
+  function takeAll() {
+    if (!result) return;
+    take(result.proposed.map((o) => o.id));
     setResult(null);
+    setTaken([]);
     setText("");
   }
 
@@ -94,19 +112,33 @@ export function AssistBox({ step, placeholder, onAccept }: Props) {
         <div className="mt-4">
           {result.message && <p className="text-sm text-muted-foreground mb-3">{result.message}</p>}
           <div className="flex flex-wrap items-center gap-2">
-            {result.proposed.map((o) => (
-              <span
-                key={o.id}
-                className="px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary border border-primary/30"
-              >
-                {o.label}
-              </span>
-            ))}
-            {/* Nothing is applied until this is pressed. */}
-            <Button type="button" size="sm" className="rounded-full gap-1.5 ml-1" onClick={accept}>
-              <Check className="w-3.5 h-3.5" />
-              Select these
-            </Button>
+            {result.proposed.map((o) => {
+              const already = taken.includes(o.id);
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  disabled={already}
+                  onClick={() => take([o.id])}
+                  aria-pressed={already}
+                  className={`px-3 py-1.5 rounded-full text-sm border inline-flex items-center gap-1.5 transition-colors ${
+                    already
+                      ? "bg-primary/5 text-muted-foreground border-border cursor-default"
+                      : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                  }`}
+                >
+                  {already ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                  {o.label}
+                </button>
+              );
+            })}
+
+            {/* For when they are all right, which is most of the time. */}
+            {result.proposed.length > 1 && taken.length < result.proposed.length && (
+              <Button type="button" size="sm" variant="ghost" className="rounded-full gap-1.5" onClick={takeAll}>
+                Take all
+              </Button>
+            )}
           </div>
           {result.confidence === "low" && (
             <p className="text-xs text-muted-foreground mt-2">Not very sure about this one — worth a look.</p>
