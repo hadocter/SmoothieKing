@@ -13,6 +13,7 @@ import Ingredients from '@/pages/ingredients';
 import Favorites from '@/pages/favorites';
 import Builder from '@/pages/builder';
 import Today from './pages/today';
+import Goal from './pages/goal';
 import Community from '@/pages/community';
 import Membership from '@/pages/membership';
 import Signup from '@/pages/auth/signup';
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/signup" component={Signup} />
         <Route path="/login" component={Login} />
+        <Route path="/goal" component={Goal} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/profile" component={MyPage} />
         <Route path="/recipes" component={Recipes} />

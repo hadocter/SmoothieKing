@@ -35,7 +35,11 @@ export default function Signup() {
         onSuccess: (data) => {
           login(data.user, data.token);
           toast({ title: "Welcome! 🎉", description: `Account created for ${data.user.nickname}.` });
-          setLocation("/onboarding");
+          // Goal first, profile second. Knowing what someone is after is what
+          // lets every screen after this say why it is showing them something;
+          // height and allergies are refinements of an answer they have not
+          // given yet.
+          setLocation("/goal");
         },
         onError: (err: any) => {
           const message = err?.data?.error || err?.message || "Failed to create account.";

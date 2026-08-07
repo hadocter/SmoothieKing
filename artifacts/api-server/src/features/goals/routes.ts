@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, goalPeriodsTable } from "@workspace/db";
+import { db, goalPeriodsTable, userProfilesTable } from "@workspace/db";
 import { requireAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
 import {
   GOAL_COPY,
@@ -95,6 +95,14 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
     .insert(goalPeriodsTable)
     .values({ userId: req.user!.userId, goal: body.goal, weeks: body.weeks, active: true })
     .returning();
+
+  // The profile keeps a `primaryGoal` column that several readers still use.
+  // It is a mirror now, not a source: this feature is its only writer, so the
+  // two cannot drift the way they would if onboarding also set it.
+  await db
+    .update(userProfilesTable)
+    .set({ primaryGoal: body.goal })
+    .where(eq(userProfilesTable.userId, req.user!.userId));
 
   res.status(201).json(present(created));
 });

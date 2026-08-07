@@ -6,6 +6,7 @@ import {
   getGetUserProfileQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
+import { getActiveGoal } from "@/features/goals";
 import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -72,9 +73,32 @@ export default function Onboarding() {
 
   const [prefilled, setPrefilled] = useState(false);
 
+  const { user, token, isLoggedIn, isLoading: loadingAuth } = useAuth();
   const submitMutation = useSubmitOnboarding();
+
+  /**
+   * The goal, read rather than asked for.
+   *
+   * It is set on its own screen and lives in goal_periods; onboarding shows it
+   * on the review step so the profile reads as complete, but never writes it.
+   * Two writers is how the profile column and the period start disagreeing.
+   */
+  const [activeGoal, setActiveGoal] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const period = await getActiveGoal(token);
+        if (!cancelled) setActiveGoal(period?.goal ?? null);
+      } catch {
+        if (!cancelled) setActiveGoal(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
   const { data: allIngredients } = useListIngredients();
-  const { user, isLoggedIn, isLoading: loadingAuth } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -120,8 +144,12 @@ export default function Onboarding() {
     arr.includes(item) ? arr.filter((i) => i !== item) : [...arr, item];
 
   const handleSubmit = () => {
+    // `primaryGoal` is deliberately still in the payload: the endpoint requires
+    // it, and the goals feature keeps the column in sync as a mirror. Sending
+    // the value read back from the active period rather than a local edit
+    // keeps this a read, not a second writer.
     submitMutation.mutate(
-      { data },
+      { data: { ...data, primaryGoal: activeGoal ?? data.primaryGoal } },
       {
         onSuccess: () => {
           // The profile page reads this query; without invalidation a cached
@@ -419,7 +447,7 @@ export default function Onboarding() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button size="lg" className="rounded-full px-8 gap-2" onClick={() => setStep(3)}>
-                Next: Goal Setting <ArrowRight className="w-4 h-4" />
+                Next: Taste <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -431,74 +459,12 @@ export default function Onboarding() {
             <div className="mb-8 flex items-center justify-between">
               <div>
                 <span className="text-primary font-bold text-sm tracking-widest uppercase mb-2 block">Step 03</span>
-                <h1 className="font-serif text-4xl font-medium mb-2">Set your intention</h1>
-                <p className="text-muted-foreground">What is your primary focus for your functional smoothie ritual?</p>
+                <h1 className="font-serif text-4xl font-medium mb-2">How do you like it to taste?</h1>
+                <p className="text-muted-foreground">
+                  Your goal decides what goes in. This decides which version of it you get.
+                </p>
               </div>
               <Button variant="outline" onClick={() => setStep(2)} className="rounded-full">Back</Button>
-            </div>
-
-            <AssistBox
-              step="goals"
-              placeholder="e.g. I keep bloating after lunch and I crash around 3pm"
-              onAccept={(ids) => {
-                // The step asks two questions at once and the sentence rarely
-                // separates them. The first suggestion fills the primary focus
-                // only while it is still empty — overwriting a goal someone
-                // already picked would be the assistant undoing their choice —
-                // and the rest are offered as secondary.
-                const [head, ...tail] = ids;
-                const primaryGoal = data.primaryGoal || head;
-                const extras = (data.primaryGoal ? ids : tail).filter((g) => g !== primaryGoal);
-                updateData({
-                  primaryGoal,
-                  secondaryGoals: [...new Set([...data.secondaryGoals, ...extras])],
-                });
-              }}
-            />
-
-            {/* Primary Goal */}
-            <div className="mb-10">
-              <h3 className="text-sm font-semibold mb-4">Primary Focus (Select 1)</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {GOALS.map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => updateData({ primaryGoal: g })}
-                    className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 ${
-                      data.primaryGoal === g
-                        ? `border-primary ring-4 ring-primary/10 shadow-lg ${GOAL_COLORS[g]}`
-                        : "border-transparent bg-card hover:border-primary/30 text-foreground shadow-sm hover:shadow-md"
-                    }`}
-                  >
-                    <div className="font-serif text-xl font-medium mb-1">{GOAL_LABELS[g]}</div>
-                    {data.primaryGoal === g && <Check className="w-5 h-5 mt-2" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Secondary Goals */}
-            <div className="mb-10">
-              <h3 className="text-sm font-semibold mb-4">Secondary Priorities (Multiple Selection)</h3>
-              <div className="flex flex-wrap gap-3">
-                {GOALS.filter((g) => g !== data.primaryGoal).map((g) => {
-                  const isSelected = data.secondaryGoals.includes(g);
-                  return (
-                    <button
-                      key={g}
-                      onClick={() => updateData({ secondaryGoals: toggleArray(data.secondaryGoals, g) })}
-                      className={`px-4 py-2.5 rounded-2xl border transition-all duration-200 text-sm font-medium flex items-center gap-2 ${
-                        isSelected
-                          ? `${GOAL_COLORS[g]} border-primary/30 ring-1 ring-primary/20`
-                          : "bg-card hover:bg-muted border-transparent"
-                      }`}
-                    >
-                      {GOAL_LABELS[g]}
-                      {isSelected && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
             {/* Taste Preference */}
@@ -582,10 +548,10 @@ export default function Onboarding() {
               <div className="bg-card rounded-2xl p-6 border shadow-sm">
                 <h3 className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-4">Smoothie Goals</h3>
                 <div
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-3 ${GOAL_COLORS[data.primaryGoal]}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-3 ${GOAL_COLORS[activeGoal ?? ""] ?? "bg-muted"}`}
                 >
                   <Sparkles className="w-4 h-4" />
-                  {GOAL_LABELS[data.primaryGoal]} (Primary Goal)
+                  {activeGoal ? `${GOAL_LABELS[activeGoal] ?? activeGoal} (your goal)` : "No goal set yet"}
                 </div>
                 {data.secondaryGoals.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
