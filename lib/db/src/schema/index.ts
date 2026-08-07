@@ -5,3 +5,4 @@ export * from "./creations";
 export * from "./plans";
 export * from "./users";
 export * from "./user-profiles";
+export * from "./smoothie-logs";

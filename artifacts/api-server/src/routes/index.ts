@@ -8,6 +8,8 @@ import favoritesRouter from "./favorites";
 import creationsRouter from "./creations";
 import membershipRouter from "./membership";
 import onboardingAssistRouter from "./onboarding-assist";
+import safetyRouter from "./safety";
+import smoothieLogsRouter from "./smoothie-logs";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(favoritesRouter);
 router.use(creationsRouter);
 router.use(membershipRouter);
 router.use(onboardingAssistRouter);
+router.use(safetyRouter);
+router.use(smoothieLogsRouter);
 
 export default router;

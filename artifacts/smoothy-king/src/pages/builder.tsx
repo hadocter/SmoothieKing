@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useListIngredients, useCreateCreation, RecipeIngredient } from "@workspace/api-client-react";
 import { GOALS, GOAL_COLORS, GOAL_LABELS, GOAL_HEX } from "@/lib/colors";
 import { Blend, Plus, X, ArrowRight, Sparkles, Check } from "lucide-react";
@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AllergenScan, type SafetyReport } from "@/components/builder/allergen-scan";
 
 // Animation utility class for bouncing elements
 const bounceClass = "animate-in zoom-in-95 duration-300";
@@ -21,7 +23,62 @@ export default function Builder() {
   const [story, setStory] = useState("");
   const [authorName, setAuthorName] = useState("");
   
+  const { token } = useAuth();
   const { data: allIngredients, isLoading: loadingIngredients } = useListIngredients();
+
+  /**
+   * The allergen check for what is currently in the glass.
+   *
+   * Run when the final step opens rather than on every ingredient tap: the
+   * point of the scene is a verification of the finished drink, and a badge
+   * that flickers as you build teaches people to ignore it. Re-run whenever
+   * the contents change, so going back a step and editing cannot leave a
+   * stale "clear" on screen.
+   */
+  const [safety, setSafety] = useState<SafetyReport | null>(null);
+  const [safetyFailed, setSafetyFailed] = useState(false);
+  useEffect(() => {
+    if (step !== 3 || selectedIngredients.length === 0) {
+      setSafety(null);
+      setSafetyFailed(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/safety/verify", {
+          method: "POST",
+          // The same bearer token the generated client attaches. Without it the
+          // server has no profile to check against, and a check with nothing to
+          // check against reports "clear" — which is exactly the reassuring,
+          // wrong answer this whole feature exists to avoid.
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ ingredients: selectedIngredients.map((i) => ({ name: i.name })) }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const report = (await res.json()) as SafetyReport;
+        if (!cancelled) {
+          setSafety(report);
+          setSafetyFailed(false);
+        }
+      } catch {
+        // Never a reassuring panel we did not earn — but not silence either.
+        // Showing nothing is what someone with no allergies sees, so a failed
+        // check would be indistinguishable from having nothing to check. It
+        // says so instead.
+        if (!cancelled) {
+          setSafety(null);
+          setSafetyFailed(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, selectedIngredients, token]);
   const createMutation = useCreateCreation();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -211,6 +268,21 @@ export default function Builder() {
                 </div>
                 <Button variant="outline" onClick={() => setStep(2)} className="rounded-full">Back</Button>
               </div>
+
+              {safety && (
+                <div className="mb-8 max-w-xl">
+                  <AllergenScan report={safety} />
+                </div>
+              )}
+
+              {safetyFailed && (
+                <div className="mb-8 max-w-xl rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                  <p className="text-sm text-destructive">
+                    Couldn&apos;t run the allergen check just now — check your ingredients yourself
+                    before publishing.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-6 max-w-xl">
                 <div>
