@@ -1,15 +1,17 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db, recipesTable, ingredientsTable, userProfilesTable, type Recipe } from "@workspace/db";
 import { ListRecipesQueryParams, GetRecipeParams } from "@workspace/api-zod";
-import { optionalAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { optionalAuth, requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   GOALS,
   GOAL_MATCH_THRESHOLD,
   MAX_OFFERED,
   type GoalScores,
 } from "../lib/scoring";
-import { checkRecipe, constraintsFrom, type CheckableIngredient } from "../lib/safety";
+import { checkRecipe, constraintsFrom } from "../lib/safety";
+import { PRESETS, type BuildProfile, type BuildableIngredient, type Preset } from "../lib/builder";
+import { generateBatch, DEFAULT_BATCH } from "../lib/generate";
 
 const router: IRouter = Router();
 
@@ -20,9 +22,15 @@ const router: IRouter = Router();
  * table.
  */
 
-/** Just the columns safety and scoring need. */
-async function loadCatalog(): Promise<CheckableIngredient[]> {
-  const rows = await db
+/**
+ * Just the columns safety, scoring and building need.
+ *
+ * A `BuildableIngredient` is a `CheckableIngredient` plus what it costs and
+ * where it goes, so one query serves all three and they cannot end up looking
+ * at different versions of the catalog within a request.
+ */
+async function loadCatalog(): Promise<BuildableIngredient[]> {
+  return db
     .select({
       name: ingredientsTable.name,
       benefits: ingredientsTable.benefits,
@@ -30,9 +38,12 @@ async function loadCatalog(): Promise<CheckableIngredient[]> {
       servingGrams: ingredientsTable.servingGrams,
       contains: ingredientsTable.contains,
       animal: ingredientsTable.animal,
+      slot: ingredientsTable.slot,
+      hex: ingredientsTable.hex,
+      flavors: ingredientsTable.flavors,
+      kcal: ingredientsTable.kcal,
     })
     .from(ingredientsTable);
-  return rows;
 }
 
 function scoresOf(recipe: Recipe): GoalScores {
@@ -164,6 +175,121 @@ router.get("/recipes/match", optionalAuth, async (req: AuthenticatedRequest, res
   });
 });
 
+/**
+ * Generate a batch of new recipes for a profile.
+ *
+ *   POST /api/recipes/generate  { goal?, preset?, count?, seedBase? }
+ *
+ * The counterpart to matching, and a POST because it writes. The intended flow
+ * is: match first, offer what already fits, and come here when nothing does or
+ * when the user wants something new anyway. Keeping them separate means the
+ * search stays a cacheable GET and generation stays an explicit act.
+ *
+ * A batch rather than one drink, because one deterministic build is one answer
+ * and the point of offering is to let someone choose. Everything generated is
+ * stored — the batch is the user's history, and storing only the one they
+ * picked would lose what they were choosing between.
+ */
+router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+
+  const [profile] = req.user
+    ? await db
+        .select()
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.userId, req.user.userId))
+        .limit(1)
+    : [];
+
+  const goal = typeof body.goal === "string" ? body.goal : profile?.primaryGoal ?? "";
+  if (!GOALS.includes(goal as (typeof GOALS)[number])) {
+    res.status(400).json({ error: `goal must be one of: ${GOALS.join(", ")}` });
+    return;
+  }
+
+  const preset = PRESETS.some((p) => p.id === body.preset)
+    ? (body.preset as Preset)
+    : "great";
+
+  // Capped so a request cannot ask the server to build an unbounded number of
+  // drinks. Ten is the default batch; more than that is not more choice, it is
+  // the same shortlist re-walked.
+  const count = Math.min(
+    typeof body.count === "number" && body.count > 0 ? Math.floor(body.count) : DEFAULT_BATCH,
+    20,
+  );
+  const seedBase = typeof body.seedBase === "number" ? Math.floor(body.seedBase) : Date.now() % 100000;
+
+  const catalog = await loadCatalog();
+  const buildProfile: BuildProfile = {
+    primaryGoal: goal,
+    secondaryGoals: Array.isArray(body.secondaryGoals)
+      ? (body.secondaryGoals as string[])
+      : profile?.secondaryGoals ?? [],
+    tastePreference: Array.isArray(body.tastePreference)
+      ? (body.tastePreference as string[])
+      : profile?.tastePreference ?? [],
+    allergies: Array.isArray(body.allergies)
+      ? (body.allergies as string[])
+      : profile?.allergies ?? [],
+    dislikedIngredients: Array.isArray(body.dislikedIngredients)
+      ? (body.dislikedIngredients as string[])
+      : profile?.dislikedIngredients ?? [],
+    vegan: body.vegan === true,
+  };
+
+  const batch = generateBatch(buildProfile, catalog, {
+    preset,
+    count,
+    seedBase,
+  });
+
+  if (batch.length === 0) {
+    // Reached when the constraints leave nothing to build with — every liquid
+    // excluded, say. Said plainly rather than returned as an empty success,
+    // which would read as "no good options" instead of "no options".
+    res.status(422).json({
+      error: "Nothing could be built from the catalog under these constraints",
+      goal,
+      preset,
+    });
+    return;
+  }
+
+  const rows = batch.map((r) => ({ ...r, createdByUserId: req.user?.userId ?? null }));
+
+  // Same drink, same slug: a batch often rediscovers a build from a different
+  // seed, and two rows for one recipe would be two entries in a history that
+  // only happened once.
+  await db.insert(recipesTable).values(rows as never).onConflictDoNothing({
+    target: recipesTable.slug,
+  });
+
+  const stored = await db
+    .select()
+    .from(recipesTable)
+    .where(inArray(recipesTable.slug, batch.map((r) => r.slug)));
+
+  const bySlug = new Map(stored.map((r) => [r.slug, r]));
+  const ordered = batch
+    .map((r) => bySlug.get(r.slug))
+    .filter((r): r is Recipe => r !== undefined);
+
+  const above = ordered.filter((r) => (scoresOf(r)[goal] ?? 0) >= GOAL_MATCH_THRESHOLD);
+
+  res.json({
+    goal,
+    preset,
+    threshold: GOAL_MATCH_THRESHOLD,
+    // Everything built and saved, against what is worth offering. The gap
+    // between the two is the honest part: a batch that produced ten drinks and
+    // only two that fit the goal should not look like a batch of two.
+    generatedCount: ordered.length,
+    matchCount: above.length,
+    recipes: above.slice(0, MAX_OFFERED).map((r) => ({ ...r, matchScore: scoresOf(r)[goal] ?? 0 })),
+  });
+});
+
 router.get("/recipes", async (req, res): Promise<void> => {
   const parsed = ListRecipesQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -188,7 +314,70 @@ router.get("/recipes", async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.get("/recipes/:id", async (req, res): Promise<void> => {
+/**
+ * The signed-in user's own generated recipes, newest first.
+ *
+ * This is the consumption history. It is a separate route from `/recipes`
+ * because these are not part of the catalog: they were built from one person's
+ * profile and answers, and they are visible to that person whether or not they
+ * ever choose to publish them.
+ */
+router.get("/recipes/mine", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(recipesTable)
+    .where(eq(recipesTable.createdByUserId, req.user!.userId));
+
+  res.json(rows.sort((a, b) => b.id - a.id));
+});
+
+/**
+ * Publish or unpublish one of your own recipes.
+ *
+ *   POST /api/recipes/:id/publish  { published: boolean }
+ *
+ * Ownership is checked rather than assumed, and a recipe nobody owns — a
+ * curated one — cannot be flipped through here at all. Publishing is the one
+ * action that takes something built from a person's profile and shows it to
+ * other people, so it is deliberate, reversible, and theirs alone to take.
+ */
+router.post("/recipes/:id/publish", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const params = GetRecipeParams.safeParse({ id: raw });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const published = (req.body ?? {}).published;
+  if (typeof published !== "boolean") {
+    res.status(400).json({ error: "published must be true or false" });
+    return;
+  }
+
+  const [recipe] = await db
+    .select()
+    .from(recipesTable)
+    .where(eq(recipesTable.id, params.data.id))
+    .limit(1);
+
+  // Same 404 whether it does not exist or belongs to someone else. A different
+  // status for each would let anyone map which ids are taken.
+  if (!recipe || recipe.createdByUserId !== req.user!.userId) {
+    res.status(404).json({ error: "Recipe not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(recipesTable)
+    .set({ published })
+    .where(eq(recipesTable.id, recipe.id))
+    .returning();
+
+  res.json(updated);
+});
+
+router.get("/recipes/:id", optionalAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetRecipeParams.safeParse({ id: raw });
   if (!params.success) {
@@ -202,7 +391,14 @@ router.get("/recipes/:id", async (req, res): Promise<void> => {
     .where(eq(recipesTable.id, params.data.id))
     .limit(1);
 
-  if (!recipe) {
+  // An unpublished recipe is only its owner's to read. Without this the
+  // listing routes filter on `published` while this one hands the same rows
+  // out to anyone who counts upward — every generated drink is built from
+  // somebody's profile, so that is their data, not an unlisted page.
+  const readable =
+    recipe && (recipe.published || recipe.createdByUserId === req.user?.userId);
+
+  if (!readable) {
     res.status(404).json({ error: "Recipe not found" });
     return;
   }

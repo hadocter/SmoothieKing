@@ -151,6 +151,43 @@ export function constraintsFrom(
 }
 
 /**
+ * The ingredients a build is allowed to reach for.
+ *
+ * The same rules as `checkRecipe`, applied to the catalog instead of to a
+ * finished recipe, so that generation cannot produce something the check would
+ * then reject. Two implementations of "is this allowed" would eventually
+ * disagree, and the direction they disagree in is what decides whether someone
+ * gets served an allergen.
+ *
+ * `dislikes` is separate from constraints and passed separately, because it is
+ * a preference rather than a safety rule. It keeps an ingredient out of a
+ * generated drink, but it is not a reason to call an existing recipe unsafe.
+ */
+export function allowedIngredients(
+  catalog: CheckableIngredient[],
+  constraints: SafetyConstraints,
+  dislikes: string[] = [],
+): { allowed: CheckableIngredient[]; excludedNames: string[] } {
+  const excludedIds = new Set(constraints.allergenIds);
+  const excludedNames = new Set(constraints.excludedNames);
+  const disliked = new Set(dislikes.map((d) => d.trim().toLowerCase()).filter(Boolean));
+
+  const rejected: string[] = [];
+  const allowed = catalog.filter((i) => {
+    const key = i.name.trim().toLowerCase();
+    const bad =
+      i.contains.some((a) => excludedIds.has(a)) ||
+      excludedNames.has(key) ||
+      (constraints.vegan && i.animal) ||
+      disliked.has(key);
+    if (bad) rejected.push(i.name);
+    return !bad;
+  });
+
+  return { allowed, excludedNames: rejected };
+}
+
+/**
  * Checks a recipe's ingredient names against a user's constraints.
  *
  * Fails closed. An ingredient name that is not in the catalog makes the whole

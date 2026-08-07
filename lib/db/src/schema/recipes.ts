@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, real, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const recipesTable = pgTable("recipes", {
   id: serial("id").primaryKey(),
@@ -55,6 +56,16 @@ export const recipesTable = pgTable("recipes", {
    * it was built from their profile and answers.
    */
   published: boolean("published").notNull().default(true),
+
+  /**
+   * Who this was generated for. Null on curated recipes, which belong to the
+   * app rather than to a person.
+   *
+   * Needed before publishing can mean anything: "the user may publish their
+   * recipe" requires knowing whose it is. Also what makes a generated recipe
+   * findable as part of someone's history.
+   */
+  createdByUserId: integer("created_by_user_id").references(() => usersTable.id),
 });
 
 export const insertRecipeSchema = createInsertSchema(recipesTable).omit({ id: true });
