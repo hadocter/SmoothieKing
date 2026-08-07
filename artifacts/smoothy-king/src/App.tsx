@@ -12,7 +12,6 @@ import RecipeDetail from '@/pages/recipe-detail';
 import Ingredients from '@/pages/ingredients';
 import Favorites from '@/pages/favorites';
 import Builder from '@/pages/builder';
-import Today from './pages/today';
 import Goal from './pages/goal';
 import Community from '@/pages/community';
 import Membership from '@/pages/membership';
@@ -37,7 +36,6 @@ function Router() {
         <Route path="/recipes/:id" component={RecipeDetail} />
         <Route path="/ingredients" component={Ingredients} />
         <Route path="/favorites" component={Favorites} />
-        <Route path="/today" component={Today} />
         <Route path="/builder" component={Builder} />
         <Route path="/community" component={Community} />
         <Route path="/membership" component={Membership} />

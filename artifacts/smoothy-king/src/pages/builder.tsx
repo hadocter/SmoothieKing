@@ -10,8 +10,10 @@ import { getActiveGoal, getGoalCatalog, type GoalCatalog, type GoalPeriod } from
 import { GoalBanner } from "@/features/goals/GoalBanner";
 import { AssistBox } from "@/features/elicitation";
 import {
+  MAX_FROM_SHELF,
   TIME_CHOICES,
   editRecipe,
+  findMatches,
   generateDrinks,
   logDrink,
   presetForMinutes,
@@ -56,6 +58,8 @@ export default function Builder() {
   const [subGoals, setSubGoals] = useState<string[]>([]);
   const [phase, setPhase] = useState<Phase>("ask");
   const [result, setResult] = useState<GenerateResult | null>(null);
+  /** How many of the offered drinks came off the shelf rather than being built. */
+  const [fromShelf, setFromShelf] = useState(0);
   const [chosen, setChosen] = useState<BuiltDrink | null>(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -122,13 +126,38 @@ export default function Builder() {
     };
   }, [token, isLoggedIn]);
 
-  async function build() {
+  /**
+   * Look before building, then build to fill.
+   *
+   * Searching the catalog costs nothing and a recipe that already fits is a
+   * real answer. But those were written for a goal, not for today's time or
+   * sub-goals, so at most three of the six come off the shelf and the rest are
+   * made now — and the screen says which is which rather than presenting a
+   * catalog lookup as something done for you this minute.
+   *
+   * Both requests go out together. Running them in sequence would make every
+   * build wait for a search whose result might not be used.
+   */
+  async function build(freshOnly = false) {
     setPhase("building");
     setFailed(false);
     setChosen(null);
     const startedAt = Date.now();
     try {
-      const res = await generateDrinks({ preset: presetForMinutes(minutes), subGoals }, token);
+      const [matched, generated] = await Promise.all([
+        freshOnly || !period ? Promise.resolve(null) : findMatches(period.goal, token).catch(() => null),
+        generateDrinks({ preset: presetForMinutes(minutes), subGoals }, token),
+      ]);
+
+      const shelf = (matched?.recipes ?? []).slice(0, MAX_FROM_SHELF);
+      const shelfIds = new Set(shelf.map((r) => r.id));
+      const fresh = generated.recipes.filter((r) => !shelfIds.has(r.id));
+
+      const res: GenerateResult = {
+        ...generated,
+        recipes: [...shelf, ...fresh].slice(0, 6),
+      };
+      setFromShelf(shelf.length);
       // The scene has something to say and saying half of it looks like a
       // glitch. A floor, not a fake delay: a slow build is never padded.
       const remaining = 2200 - (Date.now() - startedAt);
@@ -193,8 +222,11 @@ export default function Builder() {
                 magnitude fewer purchases than 6, and less satisfaction with the
                 choice. The true count is stated so the cap is not mistaken for
                 the whole set. */}
-            {result.generatedCount} built, {result.matchCount} worth offering
-            {result.matchCount > result.recipes.length && `, showing ${result.recipes.length}`}.
+            {fromShelf > 0
+              ? `${fromShelf} that already fit, and ${result.recipes.length - fromShelf} made just now.`
+              : `${result.generatedCount} built, ${result.matchCount} worth offering${
+                  result.matchCount > result.recipes.length ? `, showing ${result.recipes.length}` : ""
+                }.`}
           </p>
         </div>
 
@@ -226,7 +258,8 @@ export default function Builder() {
             Start over
           </Button>
           <div className="flex gap-3">
-            <Button variant="outline" className="rounded-full gap-2" onClick={() => void build()}>
+            {/* Fresh only — someone asking for others has seen the shelf. */}
+            <Button variant="outline" className="rounded-full gap-2" onClick={() => void build(true)}>
               <Dice5 className="w-4 h-4" />
               Build me some others
             </Button>

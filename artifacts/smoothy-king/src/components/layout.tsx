@@ -10,7 +10,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { user, isLoggedIn, logout } = useAuth();
 
   const navItems = [
-    { label: "Builder", path: "/builder", icon: Blend },
+    { label: "Today", path: "/builder", icon: Blend },
     { label: "Community", path: "/community", icon: Users },
     { label: "Recipes", path: "/recipes", icon: Sparkles },
     { label: "Ingredients", path: "/ingredients", icon: Droplet },

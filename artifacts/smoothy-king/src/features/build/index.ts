@@ -1,10 +1,12 @@
 import { apiFetch } from "../api";
 
 /**
- * The daily build: ask, generate, choose.
+ * The daily build: ask, look, build, choose.
  *
- * Distinct from `features/recommendation`, which searches the catalog. This is
- * the flow that produces something new, and the two now sit behind one screen.
+ * Searching the catalog and generating something new used to be two screens,
+ * which meant two answers to the same question and two places for the flow to
+ * drift. They are one now: the search runs alongside the build and its results
+ * fill the first few slots.
  */
 
 export interface BuiltIngredient {
@@ -82,6 +84,28 @@ export const generateDrinks = (
     method: "POST",
     body: { preset: body.preset, secondaryGoals: body.subGoals, count: body.count ?? 10 },
   });
+
+export interface MatchResult {
+  goal: string;
+  matchCount: number;
+  blockedBySafety: number;
+  unenforceableAllergies: string[];
+  recipes: BuiltDrink[];
+}
+
+export const findMatches = (goal: string, token: string | null): Promise<MatchResult> =>
+  apiFetch<MatchResult>(`/api/recipes/match?goal=${encodeURIComponent(goal)}`, token);
+
+/**
+ * How many of the six may come off the shelf.
+ *
+ * Searching before building is right — a recipe that already fits is a real
+ * answer and costs nothing to find. But a catalog recipe was written for a
+ * goal, not for today's time budget or sub-goals, so it fits less exactly than
+ * something built this minute. Three leaves half the set genuinely made for
+ * today, which is what the screen promises.
+ */
+export const MAX_FROM_SHELF = 3;
 
 export const logDrink = (recipeId: number, token: string | null): Promise<{ id: number }> =>
   apiFetch<{ id: number }>("/api/smoothie-logs", token, { method: "POST", body: { recipeId } });
