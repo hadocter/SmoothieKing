@@ -44,6 +44,58 @@ import type { ScorableIngredient } from "../scoring/index.ts";
  * and is worth honouring if a profile ever carries it — a gap in the UI's
  * options should not become a gap in the check.
  */
+/**
+ * The allergen classes this catalog can enforce, with the labels people see.
+ *
+ * The single source for what the picker offers. It used to be a hand-written
+ * list in the onboarding page and it had drifted from the data in both
+ * directions: `peanut` was tagged on peanut butter with no way to select it,
+ * while Shellfish, Egg, Peach and Kiwi were offered against a catalog that has
+ * no ingredient carrying any of them.
+ *
+ * Deriving the offered set from `contains` keeps it exhaustive by
+ * construction — tag a new allergen on an ingredient and it becomes
+ * selectable — and keeps it exclusive, because every entry is a class the
+ * check can actually act on.
+ */
+export const ALLERGEN_LABELS: Record<string, string> = {
+  dairy: "Dairy",
+  gluten: "Gluten",
+  peanut: "Peanut",
+  soy: "Soy",
+  "tree-nut": "Tree Nuts",
+};
+
+export interface AllergenClass {
+  id: string;
+  label: string;
+  /** What carries it, so the choice is not made blind. */
+  ingredients: string[];
+}
+
+/**
+ * Allergen classes present in a catalog, each with what carries it.
+ *
+ * Anything tagged but unlabelled still appears, under its own id — a missing
+ * label should degrade to an ugly option, never to a silently unofferable
+ * allergen.
+ */
+export function allergenClasses(catalog: CheckableIngredient[]): AllergenClass[] {
+  const byId = new Map<string, string[]>();
+  for (const i of catalog) {
+    for (const a of i.contains) {
+      byId.set(a, [...(byId.get(a) ?? []), i.name]);
+    }
+  }
+  return [...byId.entries()]
+    .map(([id, ingredients]) => ({
+      id,
+      label: ALLERGEN_LABELS[id] ?? id,
+      ingredients: ingredients.sort((a, b) => a.localeCompare(b)),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 const ALLERGEN_IDS: Record<string, string> = {
   "dairy": "dairy",
   "tree nuts": "tree-nut",

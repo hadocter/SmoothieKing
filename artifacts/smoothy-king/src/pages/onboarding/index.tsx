@@ -18,6 +18,7 @@ import { GOALS, GOAL_COLORS, GOAL_LABELS, GOAL_HEX } from "@/lib/colors";
 import { useToast } from "@/hooks/use-toast";
 import { AssistBox } from "@/features/elicitation";
 import { DislikePicker } from "@/features/dislikes/DislikePicker";
+import { AllergenPicker } from "@/features/safety/AllergenPicker";
 
 const bounceClass = "animate-in zoom-in-95 duration-300";
 
@@ -27,11 +28,6 @@ const ACTIVITY_LEVELS = [
   { key: "moderate", label: "Moderately Active", desc: "Moderate exercise 3-5 days/week" },
   { key: "active", label: "Very Active", desc: "Hard exercise 6-7 days/week" },
   { key: "very_active", label: "Extremely Active", desc: "Intense daily training" },
-];
-
-const ALLERGY_PRESETS = [
-  "Dairy", "Tree Nuts", "Soy", "Gluten",
-  "Shellfish", "Egg", "Banana", "Peach", "Kiwi",
 ];
 
 const TASTE_OPTIONS = [
@@ -392,47 +388,26 @@ export default function Onboarding() {
               <Button variant="outline" onClick={() => setStep(1)} className="rounded-full">Back</Button>
             </div>
 
-            {/* Allergy Presets */}
+            {/* Allergens */}
             <div className="mb-10">
               <h3 className="text-sm uppercase tracking-widest font-bold text-muted-foreground mb-4 border-b pb-2">
                 Allergens
               </h3>
-              <AssistBox
-                step="allergies"
-                placeholder="e.g. I can't do milk or anything with wheat in it"
-                // Union, never replacement. A suggestion may add an allergen
-                // the user then unticks themselves; it must not be able to
-                // clear one they had already chosen.
-                onAccept={(ids) =>
-                  updateData({ allergies: [...new Set([...data.allergies, ...ids])] })
-                }
+              <AllergenPicker
+                selected={data.allergies}
+                onChange={(next) => updateData({ allergies: next })}
               />
-              <div className="flex flex-wrap gap-3">
-                {ALLERGY_PRESETS.map((item) => {
-                  const isSelected = data.allergies.includes(item);
-                  return (
-                    <button
-                      key={item}
-                      onClick={() => updateData({ allergies: toggleArray(data.allergies, item) })}
-                      className={`px-4 py-2.5 rounded-2xl border transition-all duration-200 text-sm font-medium flex items-center gap-2 ${
-                        isSelected
-                          ? "bg-destructive/10 text-destructive border-destructive/30 ring-1 ring-destructive/20"
-                          : "bg-card hover:bg-muted border-transparent"
-                      }`}
-                    >
-                      {item}
-                      {isSelected && <X className="w-3.5 h-3.5" />}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
             {/* Disliked Ingredients from DB */}
             <div>
-              <h3 className="text-sm uppercase tracking-widest font-bold text-muted-foreground mb-4 border-b pb-2">
+              <h3 className="text-sm uppercase tracking-widest font-bold text-muted-foreground mb-2 border-b pb-2">
                 Disliked Ingredients
               </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Taste, not safety — we won&apos;t build with these, but we won&apos;t call a recipe
+                unsafe for containing one. Allergies go above.
+              </p>
               <DislikePicker
                 ingredients={allIngredients ?? []}
                 selected={data.dislikedIngredients}

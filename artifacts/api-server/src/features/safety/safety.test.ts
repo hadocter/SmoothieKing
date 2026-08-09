@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkRecipe, constraintsFrom, type CheckableIngredient } from "./safety.ts";
+import { allergenClasses, checkRecipe, constraintsFrom, type CheckableIngredient } from "./safety.ts";
 
 /** A slice of the real catalog, with the real allergen ids. */
 const CATALOG: CheckableIngredient[] = [
@@ -105,4 +105,51 @@ test("multiple allergies all block", () => {
   const report = checkRecipe(recipe("Whole Milk", "Silken Tofu", "Mango"), CATALOG, constraints);
   assert.equal(report.safe, false);
   assert.deepEqual(report.blockedBy.sort(), ["dairy", "soy"]);
+});
+
+/* ---- the offered set and the enforceable set are the same set ---- */
+
+test("every allergen class offered is one the catalog can enforce", () => {
+  // Exhaustive by construction: the list is derived from what ingredients are
+  // actually tagged with, so it cannot offer a filter with nothing behind it —
+  // which is what Shellfish and Egg were against a smoothie catalog.
+  for (const c of allergenClasses(CATALOG)) {
+    assert.ok(c.ingredients.length > 0, `${c.id} is offered but nothing carries it`);
+    const constraints = constraintsFrom({ allergies: [c.label] }, CATALOG);
+    assert.deepEqual(constraints.unresolved, [], `${c.label} is offered but not enforceable`);
+    const report = checkRecipe(recipe(c.ingredients[0]), CATALOG, constraints);
+    assert.equal(report.safe, false, `${c.label} did not block ${c.ingredients[0]}`);
+  }
+});
+
+test("every allergen the catalog tags is offered", () => {
+  // The other direction. `peanut` was tagged on peanut butter with no way to
+  // select it, so someone with a peanut allergy had no way to say so.
+  const tagged = new Set(CATALOG.flatMap((i) => i.contains));
+  const offered = new Set(allergenClasses(CATALOG).map((c) => c.id));
+  for (const id of tagged) {
+    assert.ok(offered.has(id), `${id} is tagged on an ingredient but never offered`);
+  }
+});
+
+test("an allergy to a single ingredient blocks as hard as a class", () => {
+  // Not a preference. Someone allergic to banana had nowhere to say so except
+  // the dislikes list, which generation avoids but the safety check ignores.
+  const constraints = constraintsFrom({ allergies: ["Banana"] }, CATALOG);
+  assert.equal(checkRecipe(recipe("Banana", "Mango"), CATALOG, constraints).safe, false);
+  assert.equal(checkRecipe(recipe("Mango"), CATALOG, constraints).safe, true);
+});
+
+test("classes carry what holds them, so the choice is not made blind", () => {
+  const dairy = allergenClasses(CATALOG).find((c) => c.id === "dairy");
+  assert.ok(dairy);
+  assert.ok(dairy!.ingredients.includes("Whole Milk"));
+});
+
+test("an untagged allergen degrades to its id rather than vanishing", () => {
+  // A missing label should cost an ugly option, never an unofferable allergy.
+  const extended = [...CATALOG, { ...CATALOG[0], name: "Sesame Paste", contains: ["sesame"] }];
+  const sesame = allergenClasses(extended).find((c) => c.id === "sesame");
+  assert.ok(sesame, "a newly tagged allergen must appear");
+  assert.equal(sesame!.label, "sesame");
 });

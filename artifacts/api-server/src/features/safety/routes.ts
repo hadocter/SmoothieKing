@@ -2,9 +2,38 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, ingredientsTable, userProfilesTable } from "@workspace/db";
 import { optionalAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
-import { checkRecipe, constraintsFrom, type CheckableIngredient } from "./safety.ts";
+import { allergenClasses, checkRecipe, constraintsFrom, type CheckableIngredient } from "./safety.ts";
 
 const router: IRouter = Router();
+
+/**
+ * What can be declared as an allergy, derived from the catalog.
+ *
+ * Two kinds, and between them they cover everything the check can enforce:
+ * the allergen classes something is tagged with, and every ingredient by name.
+ * Nothing else is offered, because nothing else can be acted on — a picker
+ * listing shellfish against a catalog with no shellfish in it is a promise
+ * with nothing behind it.
+ */
+router.get("/safety/allergens", async (_req, res): Promise<void> => {
+  const catalog: CheckableIngredient[] = await db
+    .select({
+      name: ingredientsTable.name,
+      benefits: ingredientsTable.benefits,
+      proteinG: ingredientsTable.proteinG,
+      servingGrams: ingredientsTable.servingGrams,
+      contains: ingredientsTable.contains,
+      animal: ingredientsTable.animal,
+    })
+    .from(ingredientsTable);
+
+  res.json({
+    classes: allergenClasses(catalog),
+    // Every ingredient, so "allergic to banana" is sayable and enforced by the
+    // same check rather than demoted to a preference.
+    ingredients: catalog.map((i) => i.name).sort((a, b) => a.localeCompare(b)),
+  });
+});
 
 /**
  * Check a set of ingredients against the caller's stated allergies.
