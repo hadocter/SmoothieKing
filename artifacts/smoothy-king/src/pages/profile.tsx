@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useListFavorites, useListRecipes, useListCreations, useGetUserProfile, useRemoveFavorite } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
@@ -9,9 +9,22 @@ import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
 import { UserCircle, Heart, Blend, Sparkles, Settings, Trash2, Plus, Activity, User, ShieldAlert, Award } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListFavoritesQueryKey, getGetUserProfileQueryKey } from "@workspace/api-client-react";
+import { apiFetch } from "@/features/api";
+
+/** Just the fields the blends tab renders. */
+interface Blended {
+  id: number;
+  name: string;
+  description: string | null;
+  benefits: string[];
+  calories: number | null;
+  protein: number | null;
+  published: boolean;
+  ingredients: { name: string; amount: string; unit: string }[];
+}
 
 export default function MyPage() {
-  const { user, isLoggedIn } = useAuth();
+  const { user, token, isLoggedIn } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -24,6 +37,50 @@ export default function MyPage() {
     query: { queryKey: getGetUserProfileQueryKey(), retry: false },
   });
   const removeFavorite = useRemoveFavorite();
+
+  /**
+   * Blends this account actually made.
+   *
+   * Not everything generated for them. One trip through the builder produces
+   * ten variants, deduplicates, and stores what is left — six rows, from one
+   * use — because the batch is kept for history and to avoid rebuilding the
+   * same drink. Those are candidates. Showing them all would fill the tab with
+   * drinks nobody chose.
+   *
+   * What was made is what was logged at the end of the recipe, plus anything
+   * published. Those two are the acts that mean "this one was mine", and the
+   * generated-but-untouched rest are not.
+   */
+  const [myBlends, setMyBlends] = useState<Blended[]>([]);
+  const [loadingMine, setLoadingMine] = useState(true);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setLoadingMine(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [logs, mine] = await Promise.all([
+          apiFetch<{ recipe: Blended | null }[]>("/api/smoothie-logs", token),
+          apiFetch<Blended[]>("/api/recipes/mine", token),
+        ]);
+        if (cancelled) return;
+        const byId = new Map<number, Blended>();
+        for (const l of logs) if (l.recipe) byId.set(l.recipe.id, l.recipe);
+        for (const r of mine) if (r.published) byId.set(r.id, r);
+        setMyBlends([...byId.values()].sort((a, b) => b.id - a.id));
+      } catch {
+        if (!cancelled) setMyBlends([]);
+      } finally {
+        if (!cancelled) setLoadingMine(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isLoggedIn]);
 
   const [activeTab, setActiveTab] = useState("saved");
 
@@ -46,9 +103,17 @@ export default function MyPage() {
     ? allRecipes.filter((r) => Array.isArray(favoriteIds) && favoriteIds.includes(r.id))
     : [];
 
-  const myCreations = Array.isArray(creations)
-    ? creations.filter((c) => user?.nickname && c.authorName.toLowerCase() === user.nickname.toLowerCase())
-    : [];
+  /**
+   * Board posts, matched back by recipe id, for the like count and the link.
+   *
+   * `recipeId` is read off the value rather than through the generated type:
+   * the OpenAPI spec has not caught up with the build flow, and the server
+   * reads it the same defensive way for the same reason.
+   */
+  const postFor = (recipeId: number) =>
+    Array.isArray(creations)
+      ? creations.find((c) => (c as { recipeId?: number }).recipeId === recipeId)
+      : undefined;
 
   const handleRemoveFavorite = (e: React.MouseEvent, id: number) => {
     e.preventDefault();
@@ -111,7 +176,7 @@ export default function MyPage() {
             </TabsTrigger>
             <TabsTrigger value="creations" className="rounded-full gap-2 text-sm font-medium">
               <Blend className="w-4 h-4 text-primary" />
-              My Blends ({myCreations.length})
+              My Blends ({myBlends.length})
             </TabsTrigger>
             <TabsTrigger value="health" className="rounded-full gap-2 text-sm font-medium">
               <Activity className="w-4 h-4 text-emerald-600" />
@@ -187,12 +252,12 @@ export default function MyPage() {
 
           {/* ── TAB 2: My Custom Blends (Creations) ── */}
           <TabsContent value="creations" className="mt-0">
-            {loadingCreations ? (
+            {loadingMine ? (
               <div className="grid sm:grid-cols-2 gap-6">
                 <Skeleton className="h-48 rounded-3xl" />
                 <Skeleton className="h-48 rounded-3xl" />
               </div>
-            ) : myCreations.length === 0 ? (
+            ) : myBlends.length === 0 ? (
               <div className="text-center py-20 bg-card rounded-3xl border border-dashed p-8">
                 <Blend className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
                 <h2 className="font-serif text-2xl font-medium mb-2">No Custom Blends Created Yet</h2>
@@ -207,44 +272,58 @@ export default function MyPage() {
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-6">
-                {myCreations.map((creation) => (
-                  <div key={creation.id} className="bg-card border rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow relative flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${GOAL_COLORS[creation.goal] || 'bg-primary/10 text-primary'}`}>
-                          {GOAL_LABELS[creation.goal] || creation.goal}
-                        </span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Heart className="w-3.5 h-3.5 text-destructive fill-destructive" /> {creation.likes}
-                        </span>
+                {myBlends.map((blend) => {
+                  const post = postFor(blend.id);
+                  return (
+                    <div key={blend.id} className="bg-card border rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow relative flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-4 gap-2">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${GOAL_COLORS[blend.benefits?.[0] ?? ""] || "bg-primary/10 text-primary"}`}>
+                            {GOAL_LABELS[blend.benefits?.[0] ?? ""] || "Custom"}
+                          </span>
+                          {/* Says which state it is in, rather than leaving a
+                              private drink looking like a failed post. */}
+                          {post ? (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Heart className="w-3.5 h-3.5 text-destructive fill-destructive" /> {post.likes}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Only you</span>
+                          )}
+                        </div>
+
+                        <h3 className="font-serif text-2xl font-medium mb-2">{blend.name}</h3>
+                        {blend.description && (
+                          <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">
+                            &ldquo;{blend.description}&rdquo;
+                          </p>
+                        )}
+
+                        <div className="space-y-1 border-t pt-3 mb-4">
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1">Ingredients:</span>
+                          {blend.ingredients?.map((ing, i) => (
+                            <div key={i} className="text-xs flex justify-between text-foreground">
+                              <span>• {ing.name}</span>
+                              <span className="text-muted-foreground">{ing.amount} {ing.unit}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
-                      <h3 className="font-serif text-2xl font-medium mb-2">{creation.name}</h3>
-                      {creation.story && (
-                        <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">
-                          "{creation.story}"
-                        </p>
-                      )}
-
-                      <div className="space-y-1 border-t pt-3 mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1">Ingredients:</span>
-                        {creation.ingredients?.map((ing, i) => (
-                          <div key={i} className="text-xs flex justify-between text-foreground">
-                            <span>• {ing.name}</span>
-                            <span className="text-muted-foreground">{ing.amount} {ing.unit}</span>
-                          </div>
-                        ))}
+                      <div className="text-xs text-muted-foreground border-t pt-3 flex justify-between items-center">
+                        <span>
+                          {blend.calories === null ? "Calories not known" : `${blend.calories} kcal`}
+                          {blend.protein !== null && ` · ${blend.protein}g protein`}
+                        </span>
+                        <Link href={post ? "/community" : `/recipes/${blend.id}`}>
+                          <Button variant="ghost" size="sm" className="text-xs h-7 px-2">
+                            {post ? "View on Community" : "View"}
+                          </Button>
+                        </Link>
                       </div>
                     </div>
-
-                    <div className="text-xs text-muted-foreground border-t pt-3 flex justify-between items-center">
-                      <span>Created by {creation.authorName}</span>
-                      <Link href="/community">
-                        <Button variant="ghost" size="sm" className="text-xs h-7 px-2">View on Community</Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
