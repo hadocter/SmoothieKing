@@ -1,3 +1,4 @@
+import path from "node:path";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -35,6 +36,35 @@ app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+/**
+ * The built web app, in production only.
+ *
+ * In development vite serves the UI on its own port and proxies `/api` here,
+ * so this path does not run and must not: it would shadow the dev server's
+ * hot reload with a stale build.
+ *
+ * In production there is no vite and no proxy — one process serves both. That
+ * asymmetry is the single biggest behavioural difference between the two
+ * environments, which is why the production image is runnable locally rather
+ * than only on the host.
+ *
+ * `STATIC_DIR` is set by the image. Absent it, this is skipped entirely, so a
+ * server started without a build still answers /api instead of 404ing on a
+ * directory that is not there.
+ */
+const staticDir = process.env.STATIC_DIR;
+if (staticDir) {
+  app.use(express.static(staticDir, { index: false, maxAge: "1h" }));
+
+  // Client-side routing: anything not under /api and not a real file is the
+  // app's own route, so it gets index.html and the router sorts it out.
+  // Registered after /api so an unknown API path still 404s as an API path
+  // rather than silently returning HTML to a fetch.
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.sendFile(path.join(staticDir, "index.html"));
+  });
+}
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

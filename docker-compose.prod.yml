@@ -1,0 +1,62 @@
+# The production image, run locally.
+#
+# This is the file that makes splitting dev and prod worth doing. Without it,
+# the first time anyone sees the deployed shape is on a host, in a log tailed
+# through a browser, with a five-minute build between each attempt.
+#
+# What differs from development, and therefore what can only break here:
+#
+#   · one process serves both halves — no vite, and no /api proxy
+#   · the UI is a built bundle, not a dev server, so BASE_PATH and asset paths
+#     are resolved at build time and wrong ones stay wrong
+#   · client-side routes must be handled by the server, or a refresh on
+#     /goals 404s
+#   · the source is not mounted, so nothing is fixable in place
+#
+#   docker compose -f docker-compose.prod.yml up --build
+#   → http://localhost:8080
+#
+# The database here is a local Postgres standing in for the hosted one. Point
+# DATABASE_URL at Neon or Supabase instead and this becomes a rehearsal of the
+# real deployment.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: smoothieking
+    ports:
+      # 55433, one past the development stack's 55432, so both can run at once
+      # and a connection string can never quietly reach the wrong one.
+      - "55433:5432"
+    volumes:
+      - prod-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smoothieking"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:dev@db:5432/smoothieking
+      PORT: "8080"
+      # Same handling as everywhere else: read from the environment or .env,
+      # never baked into the image. Absent, the app still runs and the
+      # suggestion boxes fall back to keyword matching.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  prod-db-data:

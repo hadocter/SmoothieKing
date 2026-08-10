@@ -5,18 +5,33 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT;
+/**
+ * The port the dev and preview servers listen on.
+ *
+ * Resolved lazily, because a build has no port. Validating it at config load
+ * made `vite build` fail with "PORT environment variable is required" — a dev
+ * server concern leaking into a path that never starts one, which is exactly
+ * the kind of thing that only shows up the first time someone tries to
+ * produce a production image.
+ *
+ * Still required, and still validated, wherever a server is actually started.
+ */
+function devServerPort(): number {
+  const raw = process.env.PORT;
 
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
-}
+  if (!raw) {
+    throw new Error(
+      'PORT environment variable is required but was not provided.',
+    );
+  }
 
-const port = Number(rawPort);
+  const port = Number(raw);
 
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
+  if (Number.isNaN(port) || port <= 0) {
+    throw new Error(`Invalid PORT value: "${raw}"`);
+  }
+
+  return port;
 }
 
 const basePath = process.env.BASE_PATH;
@@ -27,7 +42,9 @@ if (!basePath) {
   );
 }
 
-export default defineConfig({
+// Async because the Replit plugins are loaded with a top-level `await`; the
+// function form is what lets the port stay a serve-only concern.
+export default defineConfig(async ({ command }) => ({
   base: basePath,
   plugins: [
     react(),
@@ -65,7 +82,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port,
+    // Only touched when serving; `build` never reads it.
+    port: command === 'serve' ? devServerPort() : undefined,
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
@@ -84,8 +102,8 @@ export default defineConfig({
     },
   },
   preview: {
-    port,
+    port: command === 'serve' ? devServerPort() : undefined,
     host: '0.0.0.0',
     allowedHosts: true,
   },
-});
+}));

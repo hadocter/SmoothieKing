@@ -10,6 +10,7 @@ matters — the failure that produced the current design.
 | [allergen-check.md](allergen-check.md) | The deterministic safety check: id matching, the three routes, failing closed, and the verification screen |
 | [nutrition-data.md](nutrition-data.md) | Where the figures come from, what was refused, and what may be claimed |
 | [local-docker.md](local-docker.md) | Running the whole thing locally |
+| [deploying.md](deploying.md) | The production image, what only exists in production, and hosting that cuts off rather than bills |
 
 ---
 

@@ -1,0 +1,12 @@
+# Everything the image builds for itself, plus everything it must never see.
+node_modules
+**/node_modules
+.pnpm-store
+**/dist
+.git
+.env
+.env.*
+!.env.example
+exportToHTML
+*.log
+.DS_Store
