@@ -38,7 +38,28 @@ export default function Goal() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const [goal, setGoal] = useState<string | null>(null);
+  /**
+   * Goals in the order they were chosen: first is the one the build is shaped
+   * around, the rest are sub-goals.
+   *
+   * One `goal` before this, which meant every tap overwrote the last — someone
+   * accepting "Protein & Power" and "Glowy Skin" from a suggestion kept only
+   * the second, with no sign the first had been dropped. "In shape for summer"
+   * is genuinely two things and the screen had nowhere to put that.
+   */
+  const [ranked, setRanked] = useState<string[]>([]);
+  const goal = ranked[0] ?? null;
+
+  /** Adds if there is room, removes and renumbers if already chosen. */
+  function toggleGoal(id: string, max: number) {
+    setRanked((prev) =>
+      prev.includes(id)
+        ? prev.filter((g) => g !== id)
+        : prev.length >= max
+          ? prev
+          : [...prev, id],
+    );
+  }
   const [weeks, setWeeks] = useState<number | null>(null);
   /**
    * What they typed, kept whether or not the model mapped it.
@@ -66,7 +87,7 @@ export default function Goal() {
         // Pre-select what they are already doing, so "change my goal" opens on
         // the current answer rather than on an empty form.
         if (active) {
-          setGoal(active.goal);
+          setRanked([active.goal, ...active.subGoals]);
           setWeeks(active.weeks);
           setNarrative(active.narrative ?? "");
           setOccasion(active.occasion ?? "");
@@ -86,7 +107,7 @@ export default function Goal() {
     if (!goal || !weeks || saving) return;
     setSaving(true);
     try {
-      const period = await startGoal(goal, weeks, token, narrative.trim() || null, occasion.trim() || null);
+      const period = await startGoal(ranked, weeks, token, narrative.trim() || null, occasion.trim() || null);
       setCurrent(period);
       toast({
         title: "Set",
@@ -134,6 +155,9 @@ export default function Goal() {
   }
 
   const changing = current !== null;
+  // One primary plus however many sub-goals the server allows.
+  const maxGoals = 1 + (catalog?.maxSubGoals ?? 2);
+  const full = ranked.length >= maxGoals;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14">
@@ -145,7 +169,8 @@ export default function Goal() {
           {changing ? "Working on something else?" : "What are you working on?"}
         </h1>
         <p className="text-muted-foreground">
-          Pick one thing and a stretch of time. Everything after this is built around it.
+          Pick up to three, in order — the first one shapes the drink and the rest nudge it. Then
+          say how long for.
         </p>
       </div>
 
@@ -160,7 +185,16 @@ export default function Goal() {
           step="goals"
           placeholder="e.g. I keep crashing at 3pm and can't focus in meetings"
           onAccept={(ids, text, extra) => {
-            if (ids[0]) setGoal(ids[0]);
+            // Every accepted id, in the order they were tapped — not just the
+            // first. Suggestions routinely name two, and keeping one of them
+            // silently discards an answer the user gave.
+            setRanked((prev) => {
+              const merged = [...prev];
+              for (const id of ids) {
+                if (!merged.includes(id) && merged.length < maxGoals) merged.push(id);
+              }
+              return merged;
+            });
             // Their sentence, kept. The suggestion decided the category; this
             // is what gets shown back to them from here on.
             if (text) setNarrative(text);
@@ -175,13 +209,15 @@ export default function Goal() {
 
       <div className="grid sm:grid-cols-2 gap-4 mb-10">
         {catalog.goals.map((g) => {
-          const chosen = goal === g.id;
+          const rank = ranked.indexOf(g.id);
+          const chosen = rank >= 0;
           return (
             <button
               key={g.id}
-              onClick={() => setGoal(g.id)}
+              onClick={() => toggleGoal(g.id, maxGoals)}
               aria-pressed={chosen}
-              className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 ${
+              disabled={!chosen && full}
+              className={`p-5 rounded-2xl border-2 text-left transition-all duration-300 disabled:opacity-40 ${
                 chosen
                   ? `border-primary ring-4 ring-primary/10 shadow-lg ${GOAL_COLORS[g.id] ?? ""}`
                   : "border-transparent bg-card hover:border-primary/30 shadow-sm hover:shadow-md"
@@ -189,7 +225,14 @@ export default function Goal() {
             >
               <div className="flex items-start justify-between gap-2 mb-1">
                 <span className="font-serif text-xl font-medium">{g.label}</span>
-                {chosen && <Check className="w-5 h-5 shrink-0 mt-1" />}
+                {/* The rank, not a tick. Which one leads changes what gets
+                    built — the first is worth three points to the others' one —
+                    so the screen has to show the order, not just the set. */}
+                {chosen && (
+                  <span className="shrink-0 w-7 h-7 rounded-full bg-foreground text-background grid place-items-center text-sm font-semibold">
+                    {rank + 1}
+                  </span>
+                )}
               </div>
               {/* The card is large, so the line that says what it actually does
                   goes under it rather than into a tooltip nobody opens. */}

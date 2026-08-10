@@ -21,8 +21,24 @@ export const goalPeriodsTable = pgTable("goal_periods", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
 
-  /** One of the eight goal ids. */
+  /** One of the eight goal ids. The one the build is shaped around. */
   goal: text("goal").notNull(),
+
+  /**
+   * Up to two more, in the order they were ranked.
+   *
+   * A person rarely wants exactly one thing — "in shape for summer" is protein
+   * and skin at once — and the old shape forced that into a single choice,
+   * silently discarding whichever they picked first.
+   *
+   * Two, not more, and ordered. The builder scores the main goal at three
+   * points against each sub-goal's one, so a third sub-goal would let them
+   * outvote it and the drink would stop being about what the person came for.
+   * Order is kept because it is what they said, even though the scoring
+   * currently weights both sub-goals equally — recording a ranking we do not
+   * yet use is cheaper than asking for it again later.
+   */
+  subGoals: text("sub_goals").array().notNull().default([]),
 
   /**
    * What the user actually said they were after, in their own words.

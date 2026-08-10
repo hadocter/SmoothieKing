@@ -4,6 +4,7 @@ import {
   GOAL_COPY,
   GOAL_LIST,
   GOAL_WEEKS,
+  MAX_SUB_GOALS,
   CLAIM_DISCLAIMER,
   daysElapsed,
   daysRemaining,
@@ -89,4 +90,20 @@ test("days elapsed counts up and never goes negative", () => {
   assert.equal(daysElapsed(start, start), 0);
   assert.equal(daysElapsed(start, new Date(start.getTime() + 86_400_000 * 3.9)), 3);
   assert.equal(daysElapsed(start, new Date(start.getTime() - 86_400_000)), 0);
+});
+
+/* ---- ranked goals ---- */
+
+test("sub-goals are capped so they cannot outvote the main goal", () => {
+  // The builder scores the main goal at 3 and each sub-goal at 1, so three
+  // sub-goals tie with it and four win. Two keeps the drink about what the
+  // person came for.
+  assert.equal(MAX_SUB_GOALS, 2);
+});
+
+test("the cap leaves room for exactly three goals in total", () => {
+  // What the goal screen offers — one that shapes the drink, two that nudge —
+  // and it has to agree with the builder's own per-day cap, or a standing pair
+  // and a daily pair would be different sizes of nudge.
+  assert.equal(1 + MAX_SUB_GOALS, 3);
 });

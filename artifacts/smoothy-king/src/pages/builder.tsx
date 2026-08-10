@@ -55,6 +55,16 @@ export default function Builder() {
   const [catalog, setCatalog] = useState<GoalCatalog | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * At most two extras.
+   *
+   * Sub-goals vary a drink, they do not redefine it — the main goal is worth
+   * three points to each sub-goal's one, so more than two of them outvote it
+   * and the drink stops being about what the user came for. The same number
+   * caps the standing pair set on the goal screen.
+   */
+  const MAX_SUB_GOALS = 2;
+
   const [minutes, setMinutes] = useState<number>(5);
   const [subGoals, setSubGoals] = useState<string[]>([]);
   /** Taste for today, overriding the profile's standing preference. */
@@ -68,7 +78,7 @@ export default function Builder() {
    * the drink stops being about what the user came here for. Two is enough to
    * make a glass feel like today's without that happening.
    */
-  const MAX_SUB_GOALS = 2;
+
   const [phase, setPhase] = useState<Phase>("ask");
   const [result, setResult] = useState<GenerateResult | null>(null);
   /** How many of the offered drinks came off the shelf rather than being built. */
@@ -138,6 +148,11 @@ export default function Builder() {
         if (cancelled) return;
         setPeriod(active);
         setCatalog(cat);
+        // The standing sub-goals are the day's starting point, not a separate
+        // question. Someone who said "protein and skin, for the summer" should
+        // not have to say it again every morning — they can change it here,
+        // and the change lasts for today only.
+        if (active) setSubGoals(active.subGoals.slice(0, MAX_SUB_GOALS));
       } catch {
         /* handled by the empty states below */
       } finally {

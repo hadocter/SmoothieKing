@@ -35,6 +35,9 @@ export function GoalBanner({
   showProgress?: boolean;
 }) {
   const label = period.copy?.label ?? GOAL_LABELS[period.goal] ?? period.goal;
+  /** Sub-goals, named after the main one rather than folded into it. */
+  const alsoLabels = period.subGoals.map((g) => GOAL_LABELS[g] ?? g);
+  const also = alsoLabels.length > 0 ? ` and ${alsoLabels.join(" and ")}` : "";
   const totalDays = period.weeks * 7;
   const pct = Math.min(100, Math.round((period.daysElapsed / totalDays) * 100));
   const large = size === "large";
@@ -59,6 +62,7 @@ export function GoalBanner({
               </p>
               <p className="text-sm text-muted-foreground">
                 Working on <span className="font-medium text-foreground">{label}</span>
+                {also}
                 {period.daysRemaining === 0 && " · the time's up, but the drinks carry on"}
               </p>
             </>
@@ -71,13 +75,18 @@ export function GoalBanner({
                 &ldquo;{period.narrative}&rdquo;
               </p>
               <p className="text-sm text-muted-foreground">
-                Filed under <span className="font-medium text-foreground">{label}</span> · day{" "}
-                {period.daysElapsed + 1} of {totalDays}
+                Filed under <span className="font-medium text-foreground">{label}</span>
+                {also} · day {period.daysElapsed + 1} of {totalDays}
               </p>
             </>
           ) : (
             <>
-              <p className={`font-serif font-medium ${large ? "text-2xl mb-1" : "text-lg"}`}>{label}</p>
+              <p className={`font-serif font-medium ${large ? "text-2xl mb-1" : "text-lg"}`}>
+                {label}
+                {alsoLabels.length > 0 && (
+                  <span className="text-muted-foreground font-normal text-base">{also}</span>
+                )}
+              </p>
               <p className="text-sm text-muted-foreground">
                 Day {period.daysElapsed + 1} of {totalDays} · {period.daysRemaining} to go
               </p>

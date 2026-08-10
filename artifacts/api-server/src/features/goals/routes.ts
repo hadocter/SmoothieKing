@@ -6,6 +6,7 @@ import {
   GOAL_COPY,
   GOAL_LIST,
   GOAL_WEEKS,
+  MAX_SUB_GOALS,
   CLAIM_DISCLAIMER,
   daysElapsed,
   daysRemaining,
@@ -22,7 +23,7 @@ const router: IRouter = Router();
  * screen needs it before an account exists.
  */
 router.get("/goals/catalog", async (_req, res): Promise<void> => {
-  res.json({ goals: GOAL_LIST, weeks: GOAL_WEEKS, disclaimer: CLAIM_DISCLAIMER });
+  res.json({ goals: GOAL_LIST, weeks: GOAL_WEEKS, maxSubGoals: MAX_SUB_GOALS, disclaimer: CLAIM_DISCLAIMER });
 });
 
 function present(period: typeof goalPeriodsTable.$inferSelect) {
@@ -91,6 +92,20 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
     .set({ active: false, endedAt: new Date() })
     .where(and(eq(goalPeriodsTable.userId, req.user!.userId), eq(goalPeriodsTable.active, true)));
 
+  /**
+   * Sub-goals, validated and trimmed to two.
+   *
+   * Anything unrecognised is dropped rather than rejected: a client sending a
+   * stale goal id should cost that one goal, not the whole request. The primary
+   * cannot repeat as a sub-goal — it would score three points and one more for
+   * being its own sub-goal, which is not a thing anyone asked for.
+   */
+  const subGoals = (Array.isArray(body.subGoals) ? body.subGoals : [])
+    .filter((g): g is string => typeof g === "string")
+    .filter((g) => isGoal(g) && g !== body.goal)
+    .filter((g, i, all) => all.indexOf(g) === i)
+    .slice(0, MAX_SUB_GOALS);
+
   // Kept verbatim and capped, never parsed. Its only job is to be shown back.
   const narrative =
     typeof body.narrative === "string" && body.narrative.trim()
@@ -104,7 +119,7 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
 
   const [created] = await db
     .insert(goalPeriodsTable)
-    .values({ userId: req.user!.userId, goal: body.goal, weeks: body.weeks, narrative, occasion, active: true })
+    .values({ userId: req.user!.userId, goal: body.goal, subGoals, weeks: body.weeks, narrative, occasion, active: true })
     .returning();
 
   // The profile keeps a `primaryGoal` column that several readers still use.
@@ -112,7 +127,7 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
   // two cannot drift the way they would if onboarding also set it.
   await db
     .update(userProfilesTable)
-    .set({ primaryGoal: body.goal })
+    .set({ primaryGoal: body.goal, secondaryGoals: subGoals })
     .where(eq(userProfilesTable.userId, req.user!.userId));
 
   res.status(201).json(present(created));

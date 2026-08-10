@@ -23,12 +23,16 @@ export interface GoalCopy {
 export interface GoalCatalog {
   goals: GoalCopy[];
   weeks: number[];
+  /** How many goals may sit behind the main one. */
+  maxSubGoals: number;
   disclaimer: string;
 }
 
 export interface GoalPeriod {
   id: number;
   goal: string;
+  /** Up to two more, in the order they were ranked. */
+  subGoals: string[];
   /** What they said they were after, verbatim. Null if they tapped a card. */
   narrative: string | null;
   /** What they are preparing for, if they named one. Null otherwise. */
@@ -52,8 +56,16 @@ export const getActiveGoal = (token: string | null): Promise<GoalPeriod | null> 
 export const getGoalHistory = (token: string | null): Promise<GoalPeriod[]> =>
   apiFetch<GoalPeriod[]>("/api/goals/history", token);
 
+/**
+ * Starts a period from a ranked list of goals.
+ *
+ * `ranked[0]` is the one the build is shaped around; the rest are sub-goals in
+ * the order they were chosen. Passing the whole list rather than a primary and
+ * a bag keeps the ranking the user expressed, which is what the numbers on the
+ * cards are promising.
+ */
 export const startGoal = (
-  goal: string,
+  ranked: string[],
   weeks: number,
   token: string | null,
   narrative?: string | null,
@@ -61,7 +73,7 @@ export const startGoal = (
 ): Promise<GoalPeriod> =>
   apiFetch<GoalPeriod>("/api/goals", token, {
     method: "POST",
-    body: { goal, weeks, narrative, occasion },
+    body: { goal: ranked[0], subGoals: ranked.slice(1), weeks, narrative, occasion },
   });
 
 export const endGoal = (token: string | null): Promise<GoalPeriod> =>

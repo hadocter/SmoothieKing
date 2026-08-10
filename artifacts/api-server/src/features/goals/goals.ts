@@ -140,6 +140,17 @@ export const GOAL_LIST: GoalCopy[] = GOALS.map((g) => GOAL_COPY[g]);
  */
 export const GOAL_WEEKS = [4, 6, 8, 12] as const;
 
+/**
+ * How many goals may sit behind the main one.
+ *
+ * Two. The builder scores the main goal at three points against each
+ * sub-goal's one, so three sub-goals tie with it and four outvote it — at
+ * which point the drink is no longer about what the person came for. The same
+ * number caps the builder's per-day extras, so a standing pair and a daily
+ * pair are the same size of nudge.
+ */
+export const MAX_SUB_GOALS = 2;
+
 export type GoalWeeks = (typeof GOAL_WEEKS)[number];
 
 export const isGoal = (v: unknown): v is Goal =>
