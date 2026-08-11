@@ -17,6 +17,20 @@ accepted or rejected by the team. The team chose the scope, product claims,
 data boundaries, deployment settings, and final wording. No secrets, database
 URLs, production tokens, or user records were sent to an assistant.
 
+## Concrete examples of the collaboration
+
+- **We used AI coding assistants to** explore and draft implementation options,
+  test cases, UI copy, and release documentation across the React, Express,
+  Docker, and Drizzle codebase.
+- **The AI-assisted photo workflow got visual matching wrong:** review exposed
+  a red drink on the cold-green-tea card and other mismatches. We replaced the
+  reviewed tea image manually and changed the publishing workflow so a manifest
+  is not updated until a human gives explicit visual approval.
+- **We wrote and reviewed the acceptance tests and deterministic guardrails
+  ourselves** for required liquid/protein slots, fail-closed allergy checks,
+  and malformed requests, because a plausible response is not proof that a
+  drink is safe, complete, or buildable.
+
 ## How AI is used in the product
 
 The application can optionally use Groq-hosted language models for two

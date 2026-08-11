@@ -32,11 +32,11 @@ Keep the live run focused on one user journey.
 
 | Time | What to show |
 | --- | --- |
-| 0:00–0:30 | Slide 1: the user problem and the product promise. |
-| 0:30–1:00 | Slide 2: why a controlled catalog is more useful than a generic recipe list. |
-| 1:00–3:30 | Slide 3, then leave the deck for the live onboarding → build → log → weekly-plan loop. |
-| 3:30–4:15 | Slide 4: the model/code safety boundary. |
-| 4:15–5:00 | Slide 5: close with what works now and the two honest next steps. |
+| 0:00–0:45 | Slides 1–2: the person with the problem and the product promise. |
+| 0:45–3:15 | Slide 3, then leave the deck for the live onboarding → build → log → weekly-plan loop. |
+| 3:15–4:00 | Slide 4: the model/code safety boundary. |
+| 4:00–4:30 | Slide 5: name the one honest limit—taste prediction—and the next step. |
+| 4:30–5:00 | Slack for an unexpectedly slow click, a question, or a concise close. |
 
 The five slides are deliberately not a substitute for the live product. If the
 demo is running long, shorten the onboarding explanation—not the one core loop.
@@ -44,10 +44,11 @@ demo is running long, shorten the onboarding explanation—not the one core loop
 ## Presenter checklist
 
 - Use the deployed URL in a private/incognito window before presenting.
-- Prepare one completed demo account and a backup fresh-email address.
+- Prepare one completed demo account. Do not create an account live; run that
+  flow in advance and keep the credentials private.
 - Confirm `/api/healthz` returns 200 shortly before the session.
-- Have a screen recording or screenshots only as a backup; lead with the live
-  application.
+- Record a 90-second backup video of the exact core loop before Demo Day; lead
+  with the live application and use the video only if the network fails.
 - Keep the optional Groq key configured if you plan to show language mapping.
   If it is unavailable, say that the visible keyword fallback is running.
 
@@ -74,10 +75,21 @@ incomplete drink is valid.
 
 ### “What are the biggest limitations?”
 
-The app currently assumes a blender, does not model medication or pregnancy
-interactions, and lacks a taste-prediction model. It also does not know local
-availability or price. Those limits are documented in the README instead of
-being hidden behind a broad wellness claim.
+For this demo, the important one is taste: the app uses flavor-family tags, but
+does not yet have pairing or post-drink satisfaction data, so it cannot promise
+that every checked smoothie will taste great. The next product step is to
+collect feedback and test pairing rules before making that claim. Other
+boundaries—such as no medication/pregnancy model or local stock/pricing—are
+documented in the README rather than hidden behind a broad wellness claim.
+
+### “What breaks if a hundred people use it tomorrow?”
+
+The app has not been load-tested at that scale. It currently runs as one web
+service backed by Postgres, has no API rate limiter, and depends on an optional
+language-model provider that can throttle requests. The core checked-builder
+still has a keyword fallback when that provider is unavailable, but before a
+larger launch we would load-test, add rate limiting and observability, and
+review database-pool and account-verification settings.
 
 ### “How did you use AI to build this?”
 

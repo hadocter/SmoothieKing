@@ -1,6 +1,6 @@
 # Smoothy King
 
-**A goal-aware smoothie builder that turns a short preference check into a safe, repeatable drink plan and a weekly ingredient list.**
+**A goal-aware smoothie builder for busy people who have a nutrition goal or constraint but do not know what smoothie to make. It turns a short preference check into a safe, repeatable drink plan and a weekly ingredient list.**
 
 [Repository](https://github.com/hadocter/SmoothieKing) · [Deploy guide](#deploy-to-render--neon) · [Demo script](docs/demo-day.md) · [5-minute demo deck](docs/demo-day/Smoothy-King-Demo-Day.pptx) · [Architecture notes](docs/README.md)
 
@@ -120,7 +120,7 @@ More deployment details and the production/runtime differences are in [docs/depl
 
 The live demo should show one complete loop, not every screen:
 
-1. Sign in to the prepared demo account or create a fresh account.
+1. Sign in to the prepared demo account. Do not spend live-demo time on sign-up.
 2. Choose a concrete goal and an allergy/diet constraint.
 3. Generate a smoothie, point out the safety/goal-fit facts and recipe steps.
 4. Log the drink and open **This week** to show the actionable ingredient plan.
@@ -128,9 +128,11 @@ The live demo should show one complete loop, not every screen:
 
 Use [docs/demo-day.md](docs/demo-day.md) for the presenter run-of-show, direct Q&A answers, and the slide deck location.
 
-## AI collaboration disclosure
+## How the team used AI to build it (honest disclosure)
 
-We used AI coding assistants as pair-programming and documentation tools: to explore implementation options, draft/refactor code and copy, propose tests, and support UI/UX review. Humans set the product scope, reviewed every change, ran the application and tests, and made the final decisions. No API keys or user data were supplied to the assistants.
+We used AI coding assistants to explore implementation options, draft and refactor code/copy, propose tests, and support UI/UX review. The AI-assisted photo workflow initially selected visually mismatched ingredient images (including a red drink for cold green tea), so we replaced the reviewed image manually and changed the photo-publishing script to require explicit visual approval before it updates the catalog.
+
+We wrote and reviewed the acceptance tests and deterministic guardrails for required liquid/protein slots, fail-closed allergy checks, and invalid request handling because plausible-looking model output is not sufficient evidence that a drink is safe or buildable. Humans set the product scope, inspected every accepted change, ran the application and tests, and made the final decisions. No API keys or user data were supplied to the assistants.
 
 The product’s in-app AI boundary is intentionally tighter than its development use: AI can translate language and write optional presentation copy; deterministic code controls ingredients, safety checks, and nutrition. The full disclosure is in [docs/ai-collaboration.md](docs/ai-collaboration.md).
 
