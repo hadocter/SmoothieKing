@@ -69,6 +69,8 @@ COPY --from=build --chown=app:app /out-db ./db
 USER app
 
 ENV NODE_ENV=production
+# JWT_SECRET is deliberately not set here: it is a per-deployment secret.
+# auth.ts rejects this production process if the host has not injected it.
 # Set, so app.ts turns on static serving. Absent, the server is API-only —
 # which is what makes the same bundle usable behind a separate CDN later.
 ENV STATIC_DIR=/app/public
