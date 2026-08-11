@@ -1,17 +1,33 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { WeekPanel } from "@/features/shelf/WeekPanel";
+import { getWeekReview, type WeekReview } from "@/features/shelf";
 
 /**
- * The week's shopping, on its own screen.
+ * The week, at its own address.
  *
- * The same panel the home console's week tab shows, at its own address — this
- * is the thing someone opens in a shop, on a phone, away from the day's drink,
- * and a deep link to it should land on the whole week rather than half of it.
+ * The same panel the home console's week tab shows — this is the thing someone
+ * opens in a shop, on a phone, away from the day's drink, and a deep link to
+ * it should land on the whole week rather than half of it.
  */
 export default function Shelf() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, token } = useAuth();
+  const [review, setReview] = useState<WeekReview | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    getWeekReview(token)
+      .then((r) => !cancelled && setReview(r))
+      .catch(() => !cancelled && setReview({ active: false }));
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isLoggedIn, nonce]);
 
   if (!isLoggedIn) {
     return (
@@ -29,7 +45,14 @@ export default function Shelf() {
 
   return (
     <div className="container mx-auto px-4 py-10 md:py-14 max-w-2xl">
-      <WeekPanel />
+      {review === null ? (
+        <div className="space-y-4">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-56 rounded-2xl" />
+        </div>
+      ) : (
+        <WeekPanel review={review} onChanged={() => setNonce((n) => n + 1)} />
+      )}
     </div>
   );
 }

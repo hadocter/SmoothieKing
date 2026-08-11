@@ -105,6 +105,9 @@ export interface WeekSummary {
   goals: { goal: string; drinks: number }[];
 }
 
+/** carried — keep last week's · rebuilt — fresh, around what is left · manual — chosen */
+export type ListMode = "carried" | "rebuilt" | "manual";
+
 export interface WeekReview {
   active: boolean;
   goal?: string;
@@ -113,15 +116,15 @@ export interface WeekReview {
   daysElapsed?: number;
   daysTotal?: number;
   firstWeek?: boolean;
+  /** False until this week's ingredients have been kept, rebuilt or chosen. */
+  settled?: boolean;
+  listSource?: ListMode | null;
   previousWeek?: { weekIndex: number; items: string[] };
   summary?: WeekSummary;
 }
 
 export const getWeekReview = (token: string | null): Promise<WeekReview> =>
   apiFetch<WeekReview>("/api/shelf/week/review", token);
-
-/** carried — keep last week's · rebuilt — fresh, around what is left · manual — chosen */
-export type ListMode = "carried" | "rebuilt" | "manual";
 
 export const setWeekList = (
   body: { mode: ListMode; keep?: string[]; ingredients?: string[] },

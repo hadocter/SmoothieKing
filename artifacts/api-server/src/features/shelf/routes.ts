@@ -325,6 +325,18 @@ router.get("/shelf/week/review", requireAuth, async (req: AuthenticatedRequest, 
     )
     .limit(1);
 
+  const [thisWeeksList] = await db
+    .select()
+    .from(shelfListsTable)
+    .where(
+      and(
+        eq(shelfListsTable.userId, userId),
+        eq(shelfListsTable.goalPeriodId, period.id),
+        eq(shelfListsTable.weekIndex, weekIndex),
+      ),
+    )
+    .limit(1);
+
   const catalog = await loadCatalog();
   const profile = await profileFor(userId);
   const previousItems = previous
@@ -344,6 +356,17 @@ router.get("/shelf/week/review", requireAuth, async (req: AuthenticatedRequest, 
     daysTotal: period.weeks * 7,
     /** True in week one, when there is no previous week to carry anything from. */
     firstWeek: weekIndex === 1,
+    /**
+     * Whether this week's ingredients have been decided yet.
+     *
+     * A computed list is a proposal until someone accepts it — kept, rebuilt
+     * or chosen. The distinction exists so the app knows what to open on:
+     * deciding what is in the kitchen comes before deciding what to make from
+     * it, and a week that starts by asking for a drink is asking in the wrong
+     * order.
+     */
+    settled: thisWeeksList !== undefined,
+    listSource: thisWeeksList?.source ?? null,
     previousWeek: { weekIndex: previousIndex, items: previousItems },
     summary,
   });

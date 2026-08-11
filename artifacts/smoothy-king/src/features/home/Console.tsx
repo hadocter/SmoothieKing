@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoalBanner } from "@/features/goals/GoalBanner";
 import { getActiveGoal, type GoalPeriod } from "@/features/goals";
 import { WeekPanel } from "@/features/shelf/WeekPanel";
+import { getWeekReview, type WeekReview } from "@/features/shelf";
 import { getLogs, madeToday, type SmoothieLog } from "./index";
 
 /**
@@ -27,27 +28,48 @@ type Tab = "today" | "week";
 
 export function Console() {
   const { user, token } = useAuth();
-  const [tab, setTab] = useState<Tab>("today");
+  /**
+   * Null until we know which week it is.
+   *
+   * The tab is chosen rather than defaulted, so it cannot be rendered before
+   * the answer arrives — opening on Today and jumping to This week a moment
+   * later is worse than a beat of loading.
+   */
+  const [tab, setTab] = useState<Tab | null>(null);
   const [goal, setGoal] = useState<GoalPeriod | null>(null);
   const [logs, setLogs] = useState<SmoothieLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [review, setReview] = useState<WeekReview | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [g, l] = await Promise.all([
+      const [g, l, r] = await Promise.all([
         getActiveGoal(token).catch(() => null),
         getLogs(token).catch(() => [] as SmoothieLog[]),
+        getWeekReview(token).catch(() => ({ active: false }) as WeekReview),
       ]);
       if (cancelled) return;
       setGoal(g);
       setLogs(l);
-      setLoading(false);
+      setReview(r);
+      /**
+       * A week whose ingredients are not decided opens on deciding them.
+       *
+       * That is true of the first visit after signing up and of the first
+       * visit of every seventh day after it, and it is the order the thing
+       * actually happens in — you cannot make a drink out of a kitchen you
+       * have not stocked. Once the week is settled, the day leads.
+       *
+       * Only on the first load: re-reading after a save must not yank the tab
+       * out from under someone who has since switched it themselves.
+       */
+      setTab((current) => current ?? (r.active && !r.settled ? "week" : "today"));
     })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, nonce]);
 
   const today = madeToday(logs);
   const hour = new Date().getHours();
@@ -72,10 +94,18 @@ export function Console() {
 
       <div className="inline-flex rounded-full border bg-card p-1 mb-8" role="tablist">
         <TabButton active={tab === "today"} onClick={() => setTab("today")} icon={Sun} label="Today" />
-        <TabButton active={tab === "week"} onClick={() => setTab("week")} icon={CalendarDays} label="This week" />
+        <TabButton
+          active={tab === "week"}
+          onClick={() => setTab("week")}
+          icon={CalendarDays}
+          label="This week"
+          // A dot rather than a number: there is one thing outstanding, and
+          // the count would be of ingredients nobody has looked at yet.
+          dot={review?.active === true && review.settled === false}
+        />
       </div>
 
-      {loading ? (
+      {tab === null || review === null ? (
         <div className="space-y-4">
           <Skeleton className="h-24 rounded-2xl" />
           <Skeleton className="h-40 rounded-2xl" />
@@ -83,7 +113,14 @@ export function Console() {
       ) : tab === "today" ? (
         <Today goal={goal} done={today} />
       ) : (
-        <WeekPanel />
+        <WeekPanel
+          review={review}
+          onChanged={() => setNonce((n) => n + 1)}
+          // Settling the week is the end of that errand. The day is what they
+          // came for, and leaving them on a finished list to find it
+          // themselves is a step we can just take.
+          onSettled={() => setTab("today")}
+        />
       )}
     </div>
   );
@@ -165,11 +202,13 @@ function TabButton({
   onClick,
   icon: Icon,
   label,
+  dot = false,
 }: {
   active: boolean;
   onClick: () => void;
   icon: typeof Sun;
   label: string;
+  dot?: boolean;
 }) {
   return (
     <button
@@ -183,6 +222,12 @@ function TabButton({
     >
       <Icon className="w-4 h-4" />
       {label}
+      {dot && (
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${active ? "bg-primary-foreground" : "bg-primary"}`}
+          aria-label="needs attention"
+        />
+      )}
     </button>
   );
 }
