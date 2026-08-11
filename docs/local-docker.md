@@ -25,45 +25,15 @@ Receiver by default. The container still listens on 5000 and the web app
 proxies to `api:5000` over the compose network, so only direct access from
 the host moved.
 
-**pnpm is pinned to 9.15.9.** `pnpm-lock.yaml` is lockfileVersion 9.0 and the
-repo has no `packageManager` field, so corepack would otherwise install the
-latest. On pnpm 11 the install fails outright:
+**pnpm is pinned to 9.15.9 inside Compose.** It matches the lockfile format,
+and the workspace explicitly allows the required `esbuild` build script. The
+one-shot `install` service runs before the API and web services, so they never
+race to write the same `node_modules` tree.
 
-```
-[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
-```
-
-The cause is in `pnpm-workspace.yaml`:
-
-```yaml
-allowBuilds:
-  esbuild: set this to true or false
-```
-
-That is an unfilled placeholder. Newer pnpm reads `allowBuilds` in preference
-to `onlyBuiltDependencies`, and a string that is not a boolean denies the
-build. Worth filling in — but it lives in a block with a supply-chain warning
-on it, so it is the repo's call rather than something the compose file should
-work around by editing.
-
-**The install runs with `--no-frozen-lockfile`.** `CI=true` (needed so pnpm
-does not prompt for a TTY that compose does not have) implies a frozen
-install, and the committed lockfile's recorded `overrides` do not match
-`pnpm-workspace.yaml`:
-
-```
-ERR_PNPM_LOCKFILE_CONFIG_MISMATCH  the current "overrides" configuration
-doesn't match the value found in the lockfile
-```
-
-Also pre-existing. The side effect is that **installing rewrites
-`pnpm-lock.yaml`** — about 3,300 lines changed on the first run here. That is
-pnpm reformatting, not a dependency change, and it should not be committed
-from a local dev run:
-
-```bash
-git checkout pnpm-lock.yaml
-```
+**The install uses `--no-frozen-lockfile`.** Docker Compose needs a
+non-interactive install (`CI=true`) and the command is kept explicit in the
+service definition. Check `git status` after a local setup; dependency changes
+should be intentional and reviewed, never a side effect of starting a stack.
 
 **pnpm writes its store into the repo.** With the tree bind-mounted, pnpm
 puts `.pnpm-store/` next to the code — tens of thousands of files. It is
