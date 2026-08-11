@@ -4,6 +4,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes/index.ts";
 import { logger } from "./lib/logger.ts";
+import { isMalformedJsonBody } from "./lib/request-errors.ts";
 
 const app: Express = express();
 
@@ -67,7 +68,19 @@ if (staticDir) {
 }
 
 // Global error handler
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // A body the server cannot parse is a bad request, not a server failure.
+  // Express routes its own JSON-parser error here before any route sees it.
+  if (isMalformedJsonBody(err)) {
+    res.status(400).json({ error: "Request body must be valid JSON" });
+    return;
+  }
+
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
   console.error("Unhandled error:", err);
   res.status(500).json({ error: "Internal server error" });
 });
