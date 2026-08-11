@@ -3,6 +3,7 @@ import { Check, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 export default function Membership() {
   const { data: plans, isLoading } = useListPlans();
@@ -11,7 +12,7 @@ export default function Membership() {
   const handleCheckout = () => {
     toast({
       title: "Coming Soon",
-      description: "Membership checkout is currently disabled in this preview.",
+      description: "Checkout is not connected in this preview. We'll share availability when fulfillment opens in your area.",
     });
   };
 
@@ -20,11 +21,10 @@ export default function Membership() {
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h1 className="font-serif text-5xl md:text-6xl font-medium mb-6">
-            Invest in your <span className="italic text-primary">daily ritual.</span>
+            Make at home for <span className="italic text-primary">free.</span>
           </h1>
           <p className="font-sans text-lg text-muted-foreground leading-relaxed">
-            Smoothy King is a monthly membership for those who take their nutrition seriously. 
-            Access premium ingredients, exclusive community blends, and the daily habit of feeling good.
+            The Builder, recipe library, saved recipes, and community are free to use. These optional plans are for real-world fulfillment: ingredients delivered to you or a finished smoothie ready for pickup.
           </p>
         </div>
 
@@ -34,9 +34,9 @@ export default function Membership() {
               <Skeleton key={i} className={`h-[500px] rounded-3xl ${i === 1 ? 'md:h-[550px]' : ''}`} />
             ))
           ) : (Array.isArray(plans) && plans.length > 0 ? plans : [
-            { id: 1, name: "Essential", tagline: "For the curious blender establishing a daily routine.", pricePerMonth: 29, features: ["Access to 50+ official recipes", "Personalized health onboarding", "Custom Smoothie Builder", "Standard ingredient library"], isPopular: false, accentHex: null },
-            { id: 2, name: "Ritual Pass", tagline: "Our flagship membership for dedicated wellness enthusiasts.", pricePerMonth: 49, features: ["Everything in Essential", "Unlimited custom blend saves", "K-Beauty skin benefit scoring", "Priority community recipe sharing", "Monthly ingredient box discounts"], isPopular: true, accentHex: "#10B981" },
-            { id: 3, name: "Laboratory VIP", tagline: "The ultimate concierge nutrition & functional blend experience.", pricePerMonth: 89, features: ["Everything in Ritual Pass", "1-on-1 Nutritionist consultations", "Exclusive adaptogen drops", "Free express shipping"], isPopular: false, accentHex: null }
+            { id: 1, name: "Ingredient Delivery", tagline: "A recurring grocery-ready box for making recipes at home.", pricePerMonth: 29, features: ["Two chilled ingredient kits each month", "Pre-portioned fruit, greens, and pantry add-ons", "Skip-week controls", "Supported delivery areas only"], isPopular: false, accentHex: null },
+            { id: 2, name: "Pickup Pass", tagline: "Collect a freshly blended drink at a participating location.", pricePerMonth: 49, features: ["Four made-to-order pickup credits each month", "Choose a saved public recipe", "Time-window pickup", "Substitutions confirmed at handoff"], isPopular: true, accentHex: "#10B981" },
+            { id: 3, name: "Blend & Pickup", tagline: "A fulfillment bundle for home blending and store pickup.", pricePerMonth: 89, features: ["Everything in Ingredient Delivery", "Four pickup credits", "One flexible skip per billing cycle", "Priority fulfillment support"], isPopular: false, accentHex: null }
           ]).map((plan) => (
             <div 
               key={plan.id} 
@@ -79,16 +79,16 @@ export default function Membership() {
                 className="w-full rounded-full h-12 text-base"
                 style={plan.isPopular && plan.accentHex ? { backgroundColor: plan.accentHex, borderColor: plan.accentHex } : {}}
               >
-                Choose {plan.name}
+                Request {plan.name}
               </Button>
             </div>
           ))}
         </div>
 
         <div className="mt-24 text-center">
-          <h2 className="font-serif text-3xl font-medium mb-4">Not ready to subscribe?</h2>
-          <p className="text-muted-foreground mb-8">You can still browse recipes and join the community for free.</p>
-          <Button variant="link" className="text-primary font-medium">View the Community Wall</Button>
+          <h2 className="font-serif text-3xl font-medium mb-4">No subscription needed</h2>
+          <p className="text-muted-foreground mb-8">You can build, save, publish, and browse recipes without a plan.</p>
+          <Link href="/community"><Button variant="link" className="text-primary font-medium">View the Community Wall</Button></Link>
         </div>
       </div>
     </div>
