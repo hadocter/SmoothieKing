@@ -15,6 +15,7 @@ import {
   editRecipe,
   findMatches,
   generateDrinks,
+  getRecipeForMaking,
   logDrink,
   postToBoard,
   presetForMinutes,
@@ -50,8 +51,11 @@ import { verifyIngredients, type SafetyReport } from "@/features/safety";
 type Phase = "ask" | "building" | "choose" | "pour" | "make" | "publish" | "done";
 
 export default function Builder() {
-  const { token, isLoggedIn, user } = useAuth();
+  const { token, isLoggedIn } = useAuth();
   const { toast } = useToast();
+  const requestedRecipeId = typeof window === "undefined"
+    ? null
+    : Number(new URLSearchParams(window.location.search).get("recipe")) || null;
 
   const [period, setPeriod] = useState<GoalPeriod | null>(null);
   const [catalog, setCatalog] = useState<GoalCatalog | null>(null);
@@ -158,9 +162,6 @@ export default function Builder() {
       // in a place nobody looks.
       await postToBoard(
         { ...chosen, ...updated },
-        user?.nickname ?? "Someone",
-        period?.goal ?? "",
-        { name: patch.name, story: patch.description, imageUrl: patch.imageUrl },
         token,
       );
       // Carry the edit forward, or the confirmation screen congratulates them
@@ -179,9 +180,10 @@ export default function Builder() {
     let cancelled = false;
     void (async () => {
       try {
-        const [active, cat] = await Promise.all([
+        const [active, cat, requested] = await Promise.all([
           isLoggedIn ? getActiveGoal(token) : Promise.resolve(null),
           getGoalCatalog(token),
+          requestedRecipeId ? getRecipeForMaking(requestedRecipeId, token).catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setPeriod(active);
@@ -191,6 +193,13 @@ export default function Builder() {
         // not have to say it again every morning — they can change it here,
         // and the change lasts for today only.
         if (active) setSubGoals(active.subGoals.slice(0, MAX_SUB_GOALS));
+        // "Create it" begins with the exact published build, then goes
+        // through the same allergy check and make/log flow as a new drink.
+        // It never re-generates a substitute recipe behind the person's back.
+        if (active && requested) {
+          setChosen(requested);
+          setPhase("pour");
+        }
       } catch {
         /* handled by the empty states below */
       } finally {
@@ -200,7 +209,7 @@ export default function Builder() {
     return () => {
       cancelled = true;
     };
-  }, [token, isLoggedIn]);
+  }, [token, isLoggedIn, requestedRecipeId]);
 
   /**
    * Look before building, then build to fill.

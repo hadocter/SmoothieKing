@@ -126,6 +126,29 @@ export const editRecipe = (
   apiFetch<BuiltDrink>(`/api/recipes/${id}`, token, { method: "PATCH", body: patch });
 
 /**
+ * Loads the actual published drink behind a community post.
+ *
+ * This is deliberately the same read used by the public recipe page, rather
+ * than reconstructing ingredients from the card. A community card is a
+ * summary; the recipe is the constrained build that can safely enter the
+ * make flow.
+ */
+export const getRecipeForMaking = (id: number, token: string | null): Promise<BuiltDrink> =>
+  apiFetch<Partial<BuiltDrink>>(`/api/recipes/${id}`, token).then((recipe) => ({
+    id: recipe.id ?? id,
+    name: recipe.name ?? "Community recipe",
+    tagline: recipe.tagline ?? "A recipe shared by the community.",
+    description: recipe.description ?? "",
+    calories: recipe.calories ?? null,
+    protein: recipe.protein ?? null,
+    prepTimeMinutes: recipe.prepTimeMinutes ?? 5,
+    ingredients: recipe.ingredients ?? [],
+    steps: recipe.steps ?? [],
+    matchScore: recipe.matchScore ?? 0,
+    source: recipe.source ?? "community",
+  }));
+
+/**
  * Posts a published drink to the community board.
  *
  * A creation is the social object and a recipe is the drink; publishing has to
@@ -135,27 +158,13 @@ export const editRecipe = (
  */
 export const postToBoard = (
   drink: BuiltDrink,
-  authorName: string,
-  goal: string,
-  body: { name: string; story: string; imageUrl: string },
   token: string | null,
 ): Promise<{ id: number }> =>
   apiFetch<{ id: number }>("/api/creations", token, {
     method: "POST",
     body: {
-      name: body.name,
-      authorName,
-      goal,
-      story: body.story,
-      ingredients: drink.ingredients.map((i) => ({
-        name: i.name,
-        amount: i.amount,
-        unit: i.unit,
-        benefit: i.benefit,
-      })),
       colorHex: drink.appearance?.blend ?? "#3B82F6",
       recipeId: drink.id,
-      imageUrl: body.imageUrl,
     },
   });
 

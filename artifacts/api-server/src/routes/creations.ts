@@ -1,14 +1,18 @@
 import { Router, type IRouter } from "express";
 import { invalid } from "../lib/validation.ts";
-import { eq, desc, sql, count, gte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql, count } from "drizzle-orm";
 import {
   db,
+  creationLikesTable,
   creationsTable,
+  recipesTable,
   usersTable,
   smoothieLogsTable,
   goalPeriodsTable,
 } from "@workspace/db";
-import { ListCreationsQueryParams, CreateCreationBody } from "@workspace/api-zod";
+import { ListCreationsQueryParams } from "@workspace/api-zod";
+import { optionalAuth, requireAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
+import { GOALS } from "../features/scoring/index.ts";
 
 const router: IRouter = Router();
 
@@ -26,7 +30,7 @@ const router: IRouter = Router();
  * it was made from without the board having to know how a recipe is built.
  */
 
-router.get("/creations", async (req, res): Promise<void> => {
+router.get("/creations", optionalAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = ListCreationsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     invalid(res, parsed.error);
@@ -39,7 +43,27 @@ router.get("/creations", async (req, res): Promise<void> => {
     .from(creationsTable)
     .orderBy(sort === "popular" ? desc(creationsTable.likes) : desc(creationsTable.createdAt));
 
-  res.json(goal ? rows.filter((c) => c.goal === goal) : rows);
+  const visible = goal ? rows.filter((c) => c.goal === goal) : rows;
+  const liked = req.user && visible.length > 0
+    ? await db
+        .select({ creationId: creationLikesTable.creationId })
+        .from(creationLikesTable)
+        .where(
+          and(
+            eq(creationLikesTable.userId, req.user.userId),
+            inArray(creationLikesTable.creationId, visible.map((creation) => creation.id)),
+          ),
+        )
+    : [];
+  const likedIds = new Set(liked.map((like) => like.creationId));
+
+  res.json(visible.map((creation) => ({
+    ...creation,
+    likedByMe: likedIds.has(creation.id),
+    // Only build-flow posts carry a recipe. Seeded editorial examples stay
+    // readable, but cannot promise an unavailable one-click recreation.
+    recipeId: creation.recipeId,
+  })));
 });
 
 /**
@@ -83,51 +107,60 @@ router.get("/community/stats", async (_req, res): Promise<void> => {
   });
 });
 
-router.post("/creations", async (req, res): Promise<void> => {
-  const parsed = CreateCreationBody.safeParse(req.body);
-  if (!parsed.success) {
-    invalid(res, parsed.error);
+router.post("/creations", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const recipeId = typeof body.recipeId === "number" ? body.recipeId : null;
+  if (!recipeId) {
+    res.status(400).json({ error: "Post a drink from your builder history." });
     return;
   }
 
+  const [recipe] = await db.select().from(recipesTable).where(eq(recipesTable.id, recipeId)).limit(1);
+  // Posts are statements about a finished build. Do not accept a user-supplied
+  // ingredient list or author name, both of which would make that statement
+  // impossible to verify.
+  if (!recipe || recipe.createdByUserId !== req.user!.userId || recipe.source !== "generated" || !recipe.published) {
+    res.status(404).json({ error: "That published builder recipe was not found." });
+    return;
+  }
+
+  const goal = recipe.tags.find((tag) => GOALS.includes(tag as (typeof GOALS)[number])) ?? recipe.benefits[0];
+  if (!goal) {
+    res.status(422).json({ error: "That recipe has no goal to share with the community." });
+    return;
+  }
+
+  const authorName = req.user!.nickname;
   const initials =
-    parsed.data.authorName
+    authorName
       .split(/\s+/)
       .map((w: string) => w[0])
       .join("")
       .toUpperCase()
       .slice(0, 2) || "SK";
 
-  const body = req.body as Record<string, unknown>;
+  const values = {
+    name: recipe.name,
+    authorName,
+    authorInitials: initials,
+    goal,
+    story: recipe.description,
+    ingredients: recipe.ingredients,
+    likes: 0,
+    colorHex: typeof body.colorHex === "string" && /^#[0-9a-f]{6}$/i.test(body.colorHex) ? body.colorHex : "#3B82F6",
+    recipeId: recipe.id,
+    imageUrl: recipe.imageUrl || null,
+  };
 
-  const [created] = await db
-    .insert(creationsTable)
-    .values({
-      name: parsed.data.name,
-      authorName: parsed.data.authorName,
-      authorInitials: initials,
-      goal: parsed.data.goal,
-      story: parsed.data.story ?? null,
-      ingredients: parsed.data.ingredients.map((i) => ({
-        name: i.name,
-        amount: i.amount,
-        unit: i.unit,
-        benefit: i.benefit ?? null,
-      })),
-      likes: 0,
-      colorHex: parsed.data.colorHex ?? "#3B82F6",
-      // Not in the generated body schema yet — the spec has not caught up with
-      // the build flow. Read defensively rather than dropped, so a post from
-      // that flow keeps its link and its photo.
-      recipeId: typeof body.recipeId === "number" ? body.recipeId : null,
-      imageUrl: typeof body.imageUrl === "string" ? body.imageUrl : null,
-    })
-    .returning();
+  const [existing] = await db.select().from(creationsTable).where(eq(creationsTable.recipeId, recipe.id)).limit(1);
+  const [created] = existing
+    ? await db.update(creationsTable).set(values).where(eq(creationsTable.id, existing.id)).returning()
+    : await db.insert(creationsTable).values(values).returning();
 
   res.status(201).json(created);
 });
 
-router.post("/creations/:id/like", async (req, res): Promise<void> => {
+router.post("/creations/:id/like", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw ?? "", 10);
   if (Number.isNaN(id)) {
@@ -135,11 +168,22 @@ router.post("/creations/:id/like", async (req, res): Promise<void> => {
     return;
   }
 
-  // Incremented in the database rather than read-modify-written here, so two
-  // people liking at once do not overwrite each other's count.
+  const [creation] = await db.select({ id: creationsTable.id }).from(creationsTable).where(eq(creationsTable.id, id)).limit(1);
+  if (!creation) {
+    res.status(404).json({ error: "Creation not found" });
+    return;
+  }
+
+  const [reaction] = await db
+    .insert(creationLikesTable)
+    .values({ creationId: id, userId: req.user!.userId })
+    .onConflictDoNothing()
+    .returning();
+
+  // Only a newly recorded account reaction changes the displayed count.
   const [updated] = await db
     .update(creationsTable)
-    .set({ likes: sql`${creationsTable.likes} + 1` })
+    .set({ likes: reaction ? sql`${creationsTable.likes} + 1` : creationsTable.likes })
     .where(eq(creationsTable.id, id))
     .returning();
 
@@ -147,10 +191,10 @@ router.post("/creations/:id/like", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Creation not found" });
     return;
   }
-  res.json(updated);
+  res.json({ ...updated, likedByMe: true });
 });
 
-router.post("/creations/:id/unlike", async (req, res): Promise<void> => {
+router.post("/creations/:id/unlike", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw ?? "", 10);
   if (Number.isNaN(id)) {
@@ -158,10 +202,14 @@ router.post("/creations/:id/unlike", async (req, res): Promise<void> => {
     return;
   }
 
+  const [reaction] = await db
+    .delete(creationLikesTable)
+    .where(and(eq(creationLikesTable.creationId, id), eq(creationLikesTable.userId, req.user!.userId)))
+    .returning();
   const [updated] = await db
     .update(creationsTable)
     // Floored at zero: a double-unlike should not take a post negative.
-    .set({ likes: sql`greatest(${creationsTable.likes} - 1, 0)` })
+    .set({ likes: reaction ? sql`greatest(${creationsTable.likes} - 1, 0)` : creationsTable.likes })
     .where(eq(creationsTable.id, id))
     .returning();
 
@@ -169,7 +217,7 @@ router.post("/creations/:id/unlike", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Creation not found" });
     return;
   }
-  res.json(updated);
+  res.json({ ...updated, likedByMe: false });
 });
 
 export default router;

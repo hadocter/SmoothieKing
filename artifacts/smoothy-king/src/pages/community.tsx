@@ -1,75 +1,60 @@
-import { useState } from "react";
-import { useListCreations, useLikeCreation, useUnlikeCreation, Creation } from "@workspace/api-client-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { GOALS, GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
 import { formatDistanceToNow } from "date-fns";
-import { Heart, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Heart, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQueryClient } from "@tanstack/react-query";
-import { getListCreationsQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { getCommunityCreations, setCommunityLike, type CommunityCreation } from "@/features/community";
 
 export default function Community() {
   const [goalFilter, setGoalFilter] = useState<string>("all");
   const [sortParam, setSortParam] = useState<string>("recent");
   
-  // Realistically we'd store these in localStorage for a preview, just state here is ok.
-  const [likedIds, setLikedIds] = useState<Set<number>>(() => {
-    try {
-      const stored = localStorage.getItem('liked-creations');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
+  const [creations, setCreations] = useState<CommunityCreation[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { token, isLoggedIn } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const queryParams = {
     sort: sortParam,
     ...(goalFilter !== "all" ? { goal: goalFilter } : {})
   };
 
-  const { data: creations, isLoading } = useListCreations(queryParams);
-  const likeMutation = useLikeCreation();
-  const unlikeMutation = useUnlikeCreation();
-  const queryClient = useQueryClient();
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getCommunityCreations(token, queryParams)
+      .then((rows) => !cancelled && setCreations(rows))
+      .catch(() => !cancelled && setCreations([]))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [token, sortParam, goalFilter]);
 
-  const creationsBaseKey = getListCreationsQueryKey()[0];
+  const toggleLike = async (creation: CommunityCreation) => {
+    if (!isLoggedIn) {
+      toast({ title: "Log in to like a blend", description: "Likes are saved to your account." });
+      setLocation("/login");
+      return;
+    }
 
-  const setLiked = (id: number, liked: boolean) => {
-    setLikedIds(prev => {
-      const next = new Set(prev);
-      if (liked) next.add(id); else next.delete(id);
-      localStorage.setItem('liked-creations', JSON.stringify(Array.from(next)));
-      return next;
-    });
-  };
-
-  const adjustLikes = (id: number, delta: number) => {
-    queryClient.setQueriesData<Creation[]>({ queryKey: [creationsBaseKey] }, (old) =>
-      old?.map(c => c.id === id ? { ...c, likes: Math.max(0, c.likes + delta) } : c)
-    );
-  };
-
-  const toggleLike = (creation: Creation) => {
-    const wasLiked = likedIds.has(creation.id);
-    const delta = wasLiked ? -1 : 1;
-
-    // Optimistic update: flip local state and adjust the cached count immediately
-    setLiked(creation.id, !wasLiked);
-    adjustLikes(creation.id, delta);
-
-    const mutation = wasLiked ? unlikeMutation : likeMutation;
-    mutation.mutate({ id: creation.id }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: [creationsBaseKey] });
-      },
-      onError: () => {
-        // Roll back on failure
-        setLiked(creation.id, wasLiked);
-        adjustLikes(creation.id, -delta);
-      }
-    });
+    const nextLiked = !creation.likedByMe;
+    setCreations((rows) => rows?.map((row) => row.id === creation.id
+      ? { ...row, likedByMe: nextLiked, likes: Math.max(0, row.likes + (nextLiked ? 1 : -1)) }
+      : row) ?? null);
+    try {
+      const updated = await setCommunityLike(creation.id, nextLiked, token);
+      setCreations((rows) => rows?.map((row) => row.id === creation.id ? updated : row) ?? null);
+    } catch {
+      setCreations((rows) => rows?.map((row) => row.id === creation.id ? creation : row) ?? null);
+      toast({ title: "Couldn't save that like", variant: "destructive" });
+    }
   };
 
   return (
@@ -121,7 +106,7 @@ export default function Community() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
+          {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-[400px] rounded-3xl" />
             ))
@@ -132,7 +117,7 @@ export default function Community() {
             </div>
           ) : (
             creations?.map(creation => {
-              const isLiked = likedIds.has(creation.id);
+              const isLiked = creation.likedByMe;
               
               return (
                 <div key={creation.id} className="group bg-card rounded-3xl overflow-hidden border hover:shadow-xl transition-all duration-300 flex flex-col">
@@ -147,6 +132,8 @@ export default function Community() {
                     
                     <button 
                       onClick={() => toggleLike(creation)}
+                      aria-label={isLiked ? `Unlike ${creation.name}` : `Like ${creation.name}`}
+                      aria-pressed={isLiked}
                       className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors shadow-sm mix-blend-hard-light"
                     >
                       <Heart className={`w-5 h-5 transition-transform ${isLiked ? 'fill-white text-white scale-110' : 'text-white'}`} />
@@ -198,9 +185,18 @@ export default function Community() {
                       <Heart className="w-4 h-4 fill-current text-destructive/70" />
                       {creation.likes} likes
                     </div>
-                    <Button variant="link" className="h-auto p-0 text-primary font-medium">
-                      Try Recipe
-                    </Button>
+                    {creation.recipeId ? (
+                      <Link href={`/builder?recipe=${creation.recipeId}`}>
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-primary font-medium opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                        >
+                          Create it <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                        </Button>
+                      </Link>
+                    ) : (
+                      <span className="text-xs">Recipe details unavailable</span>
+                    )}
                   </div>
                 </div>
               );
