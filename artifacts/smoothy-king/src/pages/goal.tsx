@@ -295,7 +295,10 @@ export default function Goal() {
 
       <div className="flex justify-end gap-3">
         {changing && (
-          <Link href="/builder">
+          // Home rather than the builder: backing out of a goal change lands
+          // wherever the console decides is next, which is the week when the
+          // week is still undecided.
+          <Link href="/">
             <Button variant="outline" size="lg" className="rounded-full px-6">
               Keep what I have
             </Button>

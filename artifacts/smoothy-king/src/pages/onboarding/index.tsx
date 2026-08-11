@@ -81,6 +81,18 @@ export default function Onboarding() {
    * Two writers is how the profile column and the period start disagreeing.
    */
   const [activeGoal, setActiveGoal] = useState<string | null>(null);
+
+  /**
+   * The goal to congratulate them on.
+   *
+   * `data.primaryGoal` is left over from when the goal was chosen inside
+   * onboarding. It has a default, that step now happens on its own screen
+   * beforehand, and nothing has written to it since — so the final screen
+   * was telling everybody they were set up for Glowy Skin regardless of what
+   * they had actually picked a minute earlier. Same precedence as the
+   * submitted payload uses.
+   */
+  const shownGoal = activeGoal ?? data.primaryGoal;
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -579,7 +591,7 @@ export default function Onboarding() {
           <div className={`${bounceClass} text-center py-16`}>
             <div
               className="inline-flex items-center justify-center w-24 h-24 rounded-full mb-8 shadow-xl"
-              style={{ backgroundColor: GOAL_HEX[data.primaryGoal] || "#48D1CC" }}
+              style={{ backgroundColor: GOAL_HEX[shownGoal] || "#48D1CC" }}
             >
               <Sparkles className="w-12 h-12 text-white" />
             </div>
@@ -589,23 +601,33 @@ export default function Onboarding() {
             </h1>
             <p className="text-muted-foreground text-lg max-w-md mx-auto mb-4">
               Your personalized smoothie experience centered around{" "}
-              <strong className={GOAL_COLORS[data.primaryGoal]?.split(" ")[0]}>
-                {GOAL_LABELS[data.primaryGoal]}
+              <strong className={GOAL_COLORS[shownGoal]?.split(" ")[0]}>
+                {GOAL_LABELS[shownGoal]}
               </strong>{" "}
               is ready.
             </p>
             <p className="text-muted-foreground text-sm max-w-md mx-auto mb-12">
-              Start building your custom blend or explore curated rituals.
+              Next: the ingredients this week needs. Then the drinks.
             </p>
 
+            {/*
+              Home, not the builder.
+              
+              This sent people straight to /builder, which offers a drink
+              before anything has asked what is in their kitchen — the exact
+              order the console was rearranged to fix, bypassed by the one
+              route where it matters most. Home opens on the week while the
+              week is undecided, so a new account lands where it should
+              without this screen having to know the rule.
+            */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
                 className="rounded-full px-8 gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
-                onClick={() => setLocation("/builder")}
+                onClick={() => setLocation("/")}
               >
                 <Sparkles className="w-5 h-5" />
-                Build Your Blend
+                Sort out this week
               </Button>
               <Button
                 variant="outline"
@@ -613,7 +635,7 @@ export default function Onboarding() {
                 className="rounded-full px-8 gap-2"
                 onClick={() => setLocation("/recipes")}
               >
-                Explore Recipes <ArrowRight className="w-4 h-4" />
+                Have a look round first <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
