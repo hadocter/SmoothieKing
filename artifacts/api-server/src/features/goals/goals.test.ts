@@ -8,6 +8,8 @@ import {
   CLAIM_DISCLAIMER,
   daysElapsed,
   daysRemaining,
+  goalEndsAt,
+  goalHasEnded,
   isGoal,
   isGoalWeeks,
 } from "./goals.ts";
@@ -90,6 +92,15 @@ test("days elapsed counts up and never goes negative", () => {
   assert.equal(daysElapsed(start, start), 0);
   assert.equal(daysElapsed(start, new Date(start.getTime() + 86_400_000 * 3.9)), 3);
   assert.equal(daysElapsed(start, new Date(start.getTime() - 86_400_000)), 0);
+});
+
+test("a goal ends exactly on its promised deadline", () => {
+  const start = new Date("2026-01-01T00:00:00Z");
+  const deadline = goalEndsAt(start, 6);
+  assert.equal(deadline.toISOString(), "2026-02-12T00:00:00.000Z");
+  assert.equal(goalHasEnded(start, 6, new Date(deadline.getTime() - 1)), false);
+  assert.equal(goalHasEnded(start, 6, deadline), true);
+  assert.equal(goalHasEnded(start, 6, new Date(deadline.getTime() + 8 * 86_400_000)), true);
 });
 
 /* ---- ranked goals ---- */

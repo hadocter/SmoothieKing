@@ -13,6 +13,7 @@ import {
   isGoal,
   isGoalWeeks,
 } from "./goals.ts";
+import { activeGoalPeriod } from "./active.ts";
 
 const router: IRouter = Router();
 
@@ -43,18 +44,16 @@ function present(period: typeof goalPeriodsTable.$inferSelect) {
  * the two apart from a network failure.
  */
 router.get("/goals/active", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const [period] = await db
-    .select()
-    .from(goalPeriodsTable)
-    .where(and(eq(goalPeriodsTable.userId, req.user!.userId), eq(goalPeriodsTable.active, true)))
-    .orderBy(desc(goalPeriodsTable.startedAt))
-    .limit(1);
+  const period = await activeGoalPeriod(req.user!.userId);
 
   res.json(period ? present(period) : null);
 });
 
 /** Everything they have worked on, current first. The looking-back view. */
 router.get("/goals/history", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  // Settle an elapsed period before presenting the record, so it appears as a
+  // completed commitment rather than an indefinitely active one.
+  await activeGoalPeriod(req.user!.userId);
   const rows = await db
     .select()
     .from(goalPeriodsTable)
@@ -135,18 +134,19 @@ router.post("/goals", requireAuth, async (req: AuthenticatedRequest, res): Promi
 
 /** End the current period without starting another. */
 router.post("/goals/end", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const [ended] = await db
-    .update(goalPeriodsTable)
-    .set({ active: false, endedAt: new Date() })
-    .where(and(eq(goalPeriodsTable.userId, req.user!.userId), eq(goalPeriodsTable.active, true)))
-    .returning();
-
-  if (!ended) {
+  const current = await activeGoalPeriod(req.user!.userId);
+  if (!current) {
     res.status(404).json({ error: "No active goal" });
     return;
   }
 
-  res.json(present(ended));
+  const [ended] = await db
+    .update(goalPeriodsTable)
+    .set({ active: false, endedAt: new Date() })
+    .where(and(eq(goalPeriodsTable.id, current.id), eq(goalPeriodsTable.active, true)))
+    .returning();
+
+  res.json(present(ended!));
 });
 
 export default router;

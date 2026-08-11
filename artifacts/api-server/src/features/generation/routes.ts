@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, inArray } from "drizzle-orm";
-import { db, recipesTable, userProfilesTable, goalPeriodsTable, shelfMarksTable, type Recipe } from "@workspace/db";
+import { db, recipesTable, userProfilesTable, shelfMarksTable, type Recipe } from "@workspace/db";
 import { optionalAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
 import { GOALS, GOAL_MATCH_THRESHOLD, MAX_OFFERED } from "../scoring/index.ts";
 import { loadCatalog } from "../catalog/index.ts";
@@ -9,6 +9,7 @@ import { PRESETS, type BuildProfile, type Preset } from "./builder.ts";
 import { generateBatch, applyNaming, presentation, DEFAULT_BATCH } from "./generate.ts";
 import { weekIndexOf, skippedFrom } from "../shelf/index.ts";
 import { daysElapsed } from "../goals/goals.ts";
+import { activeGoalPeriod } from "../goals/active.ts";
 
 const router: IRouter = Router();
 
@@ -44,11 +45,7 @@ function buildProfileFrom(
 async function skippedThisWeek(userId: number | undefined): Promise<string[]> {
   if (userId === undefined) return [];
 
-  const [period] = await db
-    .select()
-    .from(goalPeriodsTable)
-    .where(and(eq(goalPeriodsTable.userId, userId), eq(goalPeriodsTable.active, true)))
-    .limit(1);
+  const period = await activeGoalPeriod(userId);
   if (!period) return [];
 
   const marks = await db

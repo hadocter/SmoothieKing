@@ -153,6 +153,8 @@ export const MAX_SUB_GOALS = 2;
 
 export type GoalWeeks = (typeof GOAL_WEEKS)[number];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export const isGoal = (v: unknown): v is Goal =>
   typeof v === "string" && (GOALS as readonly string[]).includes(v);
 
@@ -161,11 +163,19 @@ export const isGoalWeeks = (v: unknown): v is GoalWeeks =>
 
 /** Whole days from a start date to the end of a period, floored at zero. */
 export function daysRemaining(startedAt: Date, weeks: number, now: Date = new Date()): number {
-  const end = new Date(startedAt.getTime() + weeks * 7 * 24 * 60 * 60 * 1000);
-  return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+  const end = goalEndsAt(startedAt, weeks);
+  return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / DAY_MS));
 }
 
 /** Whole days elapsed since a period began, floored at zero. */
 export function daysElapsed(startedAt: Date, now: Date = new Date()): number {
-  return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / (24 * 60 * 60 * 1000)));
+  return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / DAY_MS));
 }
+
+/** The exact end is kept as history, rather than the first later page load. */
+export const goalEndsAt = (startedAt: Date, weeks: number): Date =>
+  new Date(startedAt.getTime() + weeks * 7 * DAY_MS);
+
+/** A period ends on its deadline; an eighth week of a six-week goal is not real. */
+export const goalHasEnded = (startedAt: Date, weeks: number, now: Date = new Date()): boolean =>
+  now.getTime() >= goalEndsAt(startedAt, weeks).getTime();

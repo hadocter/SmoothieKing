@@ -12,6 +12,7 @@ import {
 import { requireAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
 import { loadCatalog } from "../catalog/index.ts";
 import { daysElapsed } from "../goals/goals.ts";
+import { activeGoalPeriod } from "../goals/active.ts";
 import type { BuildProfile, BuildableIngredient } from "../generation/index.ts";
 import { weekShelf, weekIndexOf, weekSeed, isShelfState, type ShelfState } from "./shelf.ts";
 import { composition } from "./compose.ts";
@@ -23,12 +24,7 @@ const router: IRouter = Router();
 
 /** The active period, or nothing. A shelf without a goal has nothing to stock. */
 async function activePeriod(userId: number) {
-  const [period] = await db
-    .select()
-    .from(goalPeriodsTable)
-    .where(and(eq(goalPeriodsTable.userId, userId), eq(goalPeriodsTable.active, true)))
-    .limit(1);
-  return period;
+  return activeGoalPeriod(userId);
 }
 
 async function profileFor(userId: number) {
