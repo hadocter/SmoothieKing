@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setUnauthorizedHandler } from "@workspace/api-client-react";
 
 interface AuthUser {
   id: number;
@@ -39,11 +39,35 @@ const AUTH_USER_KEY = "smoothy_king_user";
 const tokenRef: { current: string | null } = { current: null };
 setAuthTokenGetter(() => tokenRef.current);
 
+/**
+ * This is only a client-side convenience check. The server remains the source
+ * of truth for token validity; reading `exp` here merely avoids briefly
+ * rendering an account that we already know has expired.
+ */
+function tokenIsExpired(token: string): boolean {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return false;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+    const parsed = JSON.parse(json) as { exp?: unknown };
+    return typeof parsed.exp === "number" && parsed.exp <= Date.now();
+  } catch {
+    // A malformed token still goes to the server, which will reject it and
+    // route through the same logout handler below.
+    return false;
+  }
+}
+
 /** Read synchronously, for the same reason. */
 function readStoredAuth(): { token: string | null; user: AuthUser | null } {
   const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
   const storedUser = localStorage.getItem(AUTH_USER_KEY);
-  if (!storedToken || !storedUser) return { token: null, user: null };
+  if (!storedToken || !storedUser || tokenIsExpired(storedToken)) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+    return { token: null, user: null };
+  }
   try {
     return { token: storedToken, user: JSON.parse(storedUser) as AuthUser };
   } catch {
@@ -96,6 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // cached responses must not survive into the next session.
     queryClient.clear();
   }, [queryClient]);
+
+  // Assign during render, as with tokenRef above: child query effects may run
+  // before a provider effect, and their first 401 should still clear the
+  // expired session rather than leave an authenticated-looking screen behind.
+  setUnauthorizedHandler(logout);
+  useEffect(() => () => setUnauthorizedHandler(null), []);
 
   return (
     <AuthContext.Provider

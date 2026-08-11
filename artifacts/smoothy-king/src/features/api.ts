@@ -111,6 +111,7 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
+    if (res.status === 401 && token) handleUnauthorized();
     // Read the server's own sentence where there is one. A failure body is not
     // guaranteed to be JSON — an upstream proxy will happily return HTML — so
     // anything unparseable falls through to the status.
@@ -127,3 +128,4 @@ export async function apiFetch<T>(
   }
   return (await res.json()) as T;
 }
+import { handleUnauthorized } from "@workspace/api-client-react";
