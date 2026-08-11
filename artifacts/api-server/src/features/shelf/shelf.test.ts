@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import type { BuildProfile, BuildableIngredient } from "../generation/index.ts";
 import { weekShelf, weekIndexOf, weekSeed, skippedFrom, drinksFrom } from "./shelf.ts";
 import { substitutesFor } from "./substitute.ts";
+import { composition } from "./compose.ts";
+import { summarise } from "./summary.ts";
 
 function ing(
   name: string,
@@ -184,4 +186,122 @@ test("dislikes are honoured as well as allergies", () => {
 
 test("an ingredient we do not stock has no substitutes rather than throwing", () => {
   assert.deepEqual(substitutesFor("Unicorn tears", CATALOG), []);
+});
+
+
+/* ------------------------------------------------------------------ */
+/* Choosing your own                                                   */
+/* ------------------------------------------------------------------ */
+
+const BUILDABLE = [
+  "Coconut Water", "Pea protein", "Mango", "Pineapple", "Turmeric", "Chia seeds",
+];
+
+test("a hand-picked list that fills every required slot is buildable", () => {
+  const r = composition(BUILDABLE, CATALOG);
+  assert.equal(r.buildable, true);
+  assert.deepEqual(r.missing, []);
+  assert.ok(r.drinksPossible > 0);
+});
+
+test("the report names what is still short, in build order", () => {
+  const r = composition(["Mango", "Pineapple"], CATALOG);
+  assert.equal(r.buildable, false);
+  assert.deepEqual(r.missing, ["liquid", "protein", "functional", "thickener"]);
+});
+
+test("flavour needs two, not one — the skeleton takes a pair", () => {
+  const r = composition(["Coconut Water", "Pea protein", "Mango", "Turmeric", "Chia seeds"], CATALOG);
+  assert.equal(r.buildable, false);
+  assert.deepEqual(r.missing, ["flavor"]);
+  const flavour = r.slots.find((s) => s.slot === "flavor");
+  assert.equal(flavour?.chosen, 1);
+  assert.equal(flavour?.picks, 2);
+});
+
+test("the sweetener is never demanded", () => {
+  const r = composition(BUILDABLE, CATALOG);
+  const sweet = r.slots.find((s) => s.slot === "sweetener");
+  assert.equal(sweet?.optional, true);
+  assert.equal(sweet?.short, false);
+});
+
+test("an unbuildable selection reports no drinks rather than a small number", () => {
+  assert.equal(composition(["Mango"], CATALOG).drinksPossible, 0);
+});
+
+test("names we do not stock are reported rather than dropped in silence", () => {
+  const r = composition([...BUILDABLE, "Unicorn tears"], CATALOG);
+  assert.deepEqual(r.unknown, ["Unicorn tears"]);
+  assert.equal(r.buildable, true);
+});
+
+test("choosing more than the skeleton needs is allowed", () => {
+  const r = composition([...BUILDABLE, "Orange", "Lemon juice", "Honey"], CATALOG);
+  assert.equal(r.buildable, true);
+  assert.ok(r.drinksPossible > composition(BUILDABLE, CATALOG).drinksPossible);
+});
+
+/* ------------------------------------------------------------------ */
+/* Leftovers                                                           */
+/* ------------------------------------------------------------------ */
+
+test("what is left over is kept, whatever the ranking thought of it", () => {
+  const { items } = weekShelf(profile(), CATALOG, { seedBase: 2, keep: ["Honey", "Spinach"] });
+  const names = items.map((i) => i.name);
+  assert.ok(names.includes("Honey"), names.join(", "));
+  assert.ok(names.includes("Spinach"), names.join(", "));
+});
+
+test("a kept ingredient is not also bought a second time", () => {
+  const { items } = weekShelf(profile(), CATALOG, { seedBase: 2, keep: ["Mango"] });
+  assert.equal(items.filter((i) => i.name === "Mango").length, 1);
+});
+
+test("keeping things still leaves a buildable week", () => {
+  const { items } = weekShelf(profile(), CATALOG, { seedBase: 4, keep: ["Honey"] });
+  assert.equal(composition(items.map((i) => i.name), CATALOG).buildable, true);
+});
+
+/* ------------------------------------------------------------------ */
+/* The week, looked back on                                            */
+/* ------------------------------------------------------------------ */
+
+const drunk = (name: string, day: string, kcal: number | null, protein: number | null) => ({
+  drankAt: new Date(day),
+  recipe: { id: 1, name, drankAt: "", calories: kcal, protein, benefits: ["glowy-skin"] },
+});
+
+test("a week counts days with a drink, not drinks", () => {
+  const s = summarise(1, 5, [
+    drunk("A", "2026-08-10T08:00:00Z", 300, 20),
+    drunk("B", "2026-08-10T20:00:00Z", 200, 10),
+    drunk("C", "2026-08-11T08:00:00Z", 250, 15),
+  ]);
+  assert.equal(s.drinks.length, 3);
+  assert.equal(s.daysWithADrink, 2);
+});
+
+test("one unknown figure makes the week's total unknown, not smaller", () => {
+  const s = summarise(1, 3, [
+    drunk("A", "2026-08-10T08:00:00Z", 300, 20),
+    drunk("B", "2026-08-11T08:00:00Z", null, 10),
+  ]);
+  assert.equal(s.calories, null);
+  assert.equal(s.unpriced, 1);
+  // Protein is still addable, and is added — one missing column does not
+  // discard the other.
+  assert.equal(s.protein, 30);
+});
+
+test("an empty week is zero rather than null", () => {
+  const s = summarise(2, 1, []);
+  assert.equal(s.calories, 0);
+  assert.equal(s.daysWithADrink, 0);
+  assert.deepEqual(s.goals, []);
+});
+
+test("a log with no recipe left is skipped rather than crashing the week", () => {
+  const s = summarise(1, 2, [{ drankAt: new Date("2026-08-10"), recipe: null }]);
+  assert.equal(s.drinks.length, 0);
 });

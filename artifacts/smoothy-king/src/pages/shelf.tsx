@@ -1,13 +1,14 @@
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { WeekShelf } from "@/features/shelf/WeekShelf";
+import { WeekPanel } from "@/features/shelf/WeekPanel";
 
 /**
  * The week's shopping, on its own screen.
  *
- * Its own route rather than a panel on the builder: this is the thing someone
- * opens in a shop, on a phone, away from the day's drink.
+ * The same panel the home console's week tab shows, at its own address — this
+ * is the thing someone opens in a shop, on a phone, away from the day's drink,
+ * and a deep link to it should land on the whole week rather than half of it.
  */
 export default function Shelf() {
   const { isLoggedIn } = useAuth();
@@ -28,7 +29,7 @@ export default function Shelf() {
 
   return (
     <div className="container mx-auto px-4 py-10 md:py-14 max-w-2xl">
-      <WeekShelf />
+      <WeekPanel />
     </div>
   );
 }

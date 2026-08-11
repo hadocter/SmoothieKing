@@ -109,11 +109,19 @@ export function drinksFrom(names: string[], catalog: BuildableIngredient[]): num
 export function weekShelf(
   profile: BuildProfile,
   catalog: BuildableIngredient[],
-  options: { preset?: Preset; seedBase?: number; max?: number } = {},
+  options: { preset?: Preset; seedBase?: number; max?: number; keep?: string[] } = {},
 ): WeekShelf {
   const preset = options.preset ?? "great";
   const seedBase = options.seedBase ?? 0;
   const max = options.max ?? MAX_ITEMS;
+  /**
+   * What is already in the kitchen, kept whatever the ranking says.
+   *
+   * A list that tells someone to buy a second thickener while the first is
+   * still in the cupboard is a list that costs money to follow. Leftovers are
+   * pinned first and the computed picks fill in around them.
+   */
+  const keep = new Set((options.keep ?? []).map((n) => n.toLowerCase()));
 
   const { usage, drinks } = countUsage(profile, catalog, preset, seedBase, SAMPLE);
   const slotOf = new Map(catalog.map((i) => [i.name, i.slot ?? ""]));
@@ -140,7 +148,15 @@ export function weekShelf(
   const perSlot = new Map<string, number>();
   const need = new Map(slotShape().map((s) => [s.slot, s.optional ? 0 : s.picks]));
 
+  for (const i of catalog) {
+    if (!keep.has(i.name.toLowerCase())) continue;
+    const slot = i.slot ?? "";
+    picked.push({ name: i.name, slot, usedIn: usage.get(i.name) ?? 0, essential: required.has(slot) });
+    perSlot.set(slot, (perSlot.get(slot) ?? 0) + 1);
+  }
+
   for (const item of ranked) {
+    if (picked.some((p) => p.name === item.name)) continue;
     const taken = perSlot.get(item.slot) ?? 0;
     if (taken >= (need.get(item.slot) ?? 0)) continue;
     picked.push(item);

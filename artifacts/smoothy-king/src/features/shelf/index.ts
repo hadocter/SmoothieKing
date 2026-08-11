@@ -79,3 +79,96 @@ export const SLOT_LABEL: Record<string, string> = {
   thickener: "Body",
   sweetener: "Sweetener",
 };
+
+/* ------------------------------------------------------------------ */
+/* Rolling the week over                                               */
+/* ------------------------------------------------------------------ */
+
+export interface DrunkDrink {
+  id: number;
+  name: string;
+  drankAt: string;
+  calories: number | null;
+  protein: number | null;
+  benefits: string[];
+}
+
+export interface WeekSummary {
+  weekIndex: number;
+  daysSoFar: number;
+  drinks: DrunkDrink[];
+  daysWithADrink: number;
+  /** Null when any drink had no figure — a partial total is not a total. */
+  calories: number | null;
+  protein: number | null;
+  unpriced: number;
+  goals: { goal: string; drinks: number }[];
+}
+
+export interface WeekReview {
+  active: boolean;
+  goal?: string;
+  weekIndex?: number;
+  weeksTotal?: number;
+  daysElapsed?: number;
+  daysTotal?: number;
+  firstWeek?: boolean;
+  previousWeek?: { weekIndex: number; items: string[] };
+  summary?: WeekSummary;
+}
+
+export const getWeekReview = (token: string | null): Promise<WeekReview> =>
+  apiFetch<WeekReview>("/api/shelf/week/review", token);
+
+/** carried — keep last week's · rebuilt — fresh, around what is left · manual — chosen */
+export type ListMode = "carried" | "rebuilt" | "manual";
+
+export const setWeekList = (
+  body: { mode: ListMode; keep?: string[]; ingredients?: string[] },
+  token: string | null,
+): Promise<{ weekIndex: number; source: ListMode; ingredients: string[] }> =>
+  apiFetch("/api/shelf/week/list", token, { method: "POST", body });
+
+/* ------------------------------------------------------------------ */
+/* Choosing your own                                                   */
+/* ------------------------------------------------------------------ */
+
+export interface PickableIngredient {
+  name: string;
+  flavors: string[];
+  benefits: string[];
+  contains: string[];
+}
+
+export interface SlotGroup {
+  slot: string;
+  /** How many the skeleton takes from this slot. */
+  picks: number;
+  optional: boolean;
+  ingredients: PickableIngredient[];
+}
+
+export const getPickerCatalog = (token: string | null): Promise<{ slots: SlotGroup[] }> =>
+  apiFetch("/api/shelf/catalog", token);
+
+export interface SlotRequirement {
+  slot: string;
+  picks: number;
+  optional: boolean;
+  chosen: number;
+  short: boolean;
+}
+
+export interface CompositionReport {
+  slots: SlotRequirement[];
+  buildable: boolean;
+  missing: string[];
+  drinksPossible: number;
+  unknown: string[];
+}
+
+export const composeCheck = (
+  ingredients: string[],
+  token: string | null,
+): Promise<CompositionReport> =>
+  apiFetch("/api/shelf/compose", token, { method: "POST", body: { ingredients } });
