@@ -143,6 +143,7 @@ test("a total is null rather than wrong when a figure is missing", () => {
 test("an empty catalog produces an empty build rather than throwing", () => {
   const result = buildSmoothie(profile(), []);
   assert.deepEqual(result.picks, []);
+  assert.deepEqual(result.missingStructuralSlots, ["liquid", "protein"]);
   assert.equal(result.totalGrams, 0);
 });
 
@@ -181,6 +182,20 @@ test("a batch deduplicates and ranks on the main goal", () => {
       "batch is not ordered by main-goal fit",
     );
   }
+});
+
+test("a batch discards candidates missing a structural slot", () => {
+  const withoutLiquids = CATALOG.filter((ingredient) => ingredient.slot !== "liquid");
+  const partial = buildSmoothie(profile(), withoutLiquids);
+  assert.deepEqual(partial.missingStructuralSlots, ["liquid"]);
+  assert.deepEqual(generateBatch(profile(), withoutLiquids, { count: 10 }), []);
+});
+
+test("a partial build never calls its first ingredient a liquid", () => {
+  const withoutLiquids = CATALOG.filter((ingredient) => ingredient.slot !== "liquid");
+  const { recipe } = generateOne(profile(), withoutLiquids);
+  assert.match(recipe.steps[0] ?? "", /^Add /);
+  assert.doesNotMatch(recipe.steps[0] ?? "", /liquid at the bottom/i);
 });
 
 test("a batch is reproducible from its seed base", () => {

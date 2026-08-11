@@ -157,6 +157,8 @@ export interface Pick {
 
 export interface BuildResult {
   picks: Pick[];
+  /** Required slots that could not be filled under the current constraints. */
+  missingStructuralSlots: string[];
   /** Ingredients kept out by a safety rule or a dislike, for display. */
   excludedNames: string[];
   /**
@@ -421,6 +423,12 @@ export function buildSmoothie(
 
   return {
     picks,
+    // A protein powder without a liquid is not a small smoothie. Keep the
+    // partial picks available to callers that explain a constraint, but make
+    // the missing shape explicit so generation can refuse to offer it.
+    missingStructuralSlots: ["liquid", "protein"].filter(
+      (slot) => !picks.some((pick) => pick.slot === slot),
+    ),
     excludedNames: [...new Set(excludedNames)],
     totalKcal: kcalKnown ? kcal : null,
     totalProteinG: proteinKnown ? Math.round(proteinG * 10) / 10 : null,
@@ -433,4 +441,3 @@ export function buildSmoothie(
 /** Fill against the glass target, 0–100, for the build animation. */
 export const fillPercent = (grams: number): number =>
   Math.min(100, Math.round((grams / TARGET_VOLUME) * 100));
-

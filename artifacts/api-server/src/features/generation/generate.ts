@@ -98,10 +98,15 @@ function toIngredients(result: BuildResult): GeneratedRecipe["ingredients"] {
 }
 
 function toSteps(result: BuildResult): string[] {
-  const [first, ...rest] = result.picks;
+  const liquid = result.picks.find((pick) => pick.slot === "liquid");
+  const first = liquid ?? result.picks[0];
   if (!first) return [];
+
+  const rest = result.picks.filter((pick) => pick !== first);
   return [
-    `Pour in the ${first.name.toLowerCase()} first — a liquid at the bottom gives the blades something to work with.`,
+    liquid
+      ? `Pour in the ${liquid.name.toLowerCase()} first — the liquid at the bottom gives the blades something to work with.`
+      : `Add the ${first.name.toLowerCase()} first.`,
     ...rest.map((p) => `Add the ${p.name.toLowerCase()}.`),
     "Blend on high until smooth, about 45 seconds.",
   ];
@@ -207,7 +212,10 @@ export function generateBatch(
       preset: options.preset,
       seed: seedBase + n,
     });
-    if (drink.recipe.ingredients.length === 0) continue;
+    // Liquid and protein are the glass's structure, not optional garnish.
+    // A partial build is useful as a diagnostic but must never be stored or
+    // offered as though it were a smoothie.
+    if (drink.result.missingStructuralSlots.length > 0) continue;
     if (!bySlug.has(drink.recipe.slug)) bySlug.set(drink.recipe.slug, drink);
   }
 
