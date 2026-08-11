@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BuiltDrink } from "./index";
 
 /**
@@ -35,9 +35,22 @@ const grams = (amount: string): number => {
 export function PourScene({
   drink,
   onDone,
+  verification,
+  blocked = false,
 }: {
   drink: BuiltDrink;
   onDone: () => void;
+  /**
+   * The allergen check, shown under the figures.
+   *
+   * Passed in rather than fetched here so this component stays what it is —
+   * an animation over numbers the server computed. The check belongs on this
+   * screen because this is where the drink stops being a card and becomes
+   * something someone is about to make.
+   */
+  verification?: ReactNode;
+  /** True when that check came back not clear. Changes the way out. */
+  blocked?: boolean;
 }) {
   const items = drink.ingredients;
   const still = reduceMotion();
@@ -151,14 +164,30 @@ export function PourScene({
         <Figure label="Fit for your goal" value={`${fit}%`} note="of what you're after" />
       </div>
 
-      <div className="flex justify-end mt-10 pt-6 border-t">
+      {verification && <div className="mt-8">{verification}</div>}
+
+      <div className="flex items-center justify-end gap-4 mt-10 pt-6 border-t">
+        {/* A drink the check flagged still has a way forward — it is their
+            kitchen — but the way forward says what it is doing. Hiding the
+            button would leave someone stuck on a screen with no explanation;
+            styling it like the safe one would be worse. */}
+        {blocked && done && (
+          <p className="text-sm text-destructive mr-auto max-w-sm">
+            This one contains something you told us to avoid. We would not build it
+            for you — go back and pick another.
+          </p>
+        )}
         <button
           type="button"
           onClick={onDone}
           disabled={!done}
-          className="px-8 py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg disabled:opacity-40 transition-opacity"
+          className={`px-8 py-3 rounded-full font-medium text-lg disabled:opacity-40 transition-opacity ${
+            blocked
+              ? "border-2 border-destructive text-destructive"
+              : "bg-primary text-primary-foreground"
+          }`}
         >
-          {done ? "Show me how to make it" : "Pouring…"}
+          {!done ? "Pouring…" : blocked ? "Make it anyway" : "Show me how to make it"}
         </button>
       </div>
     </div>

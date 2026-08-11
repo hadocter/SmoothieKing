@@ -27,6 +27,8 @@ import { DrinkCard } from "@/features/build/DrinkCard";
 import { PourScene } from "@/features/build/PourScene";
 import { RecipeSteps } from "@/features/build/RecipeSteps";
 import { PublishForm } from "@/features/build/PublishForm";
+import { AllergenScan } from "@/features/safety/AllergenScan";
+import { verifyIngredients, type SafetyReport } from "@/features/safety";
 
 /**
  * Today's smoothie.
@@ -86,6 +88,42 @@ export default function Builder() {
   const [chosen, setChosen] = useState<BuiltDrink | null>(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * The allergen check on the drink they picked.
+   *
+   * Generation already filtered on the same rules, so this should always come
+   * back clear — and that is exactly why it is worth running and showing. A
+   * filter and a verifier that agree are two independent statements of the
+   * same fact; a filter nobody verifies is a promise.
+   *
+   * `null` means not asked yet, `"failed"` means we asked and could not get an
+   * answer. Those are different states and the screen says which: a check that
+   * did not run must never look like a check that passed. That is the exact
+   * shape of the earlier defect, where a request without a token returned
+   * "clear" because the server had no profile to check against.
+   */
+  const [safety, setSafety] = useState<SafetyReport | "failed" | null>(null);
+
+  /**
+   * Verify the chosen drink the moment the pour starts.
+   *
+   * Not on choosing, so a change of mind does not leave a stale verdict on
+   * screen; not on the recipe step, because by then they are already pouring
+   * things into a blender.
+   */
+  useEffect(() => {
+    if (phase !== "pour" || !chosen) return;
+    let cancelled = false;
+    setSafety(null);
+    verifyIngredients(chosen.ingredients.map((i) => i.name), token)
+      .then((r) => !cancelled && setSafety(r))
+      // A check that could not run is not a check that passed.
+      .catch(() => !cancelled && setSafety("failed"));
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, chosen, token]);
 
   /**
    * Reaching the end of the recipe is what counts as having made and drunk it.
@@ -321,7 +359,22 @@ export default function Builder() {
   if (phase === "pour" && chosen) {
     return (
       <div className="max-w-5xl mx-auto px-6 py-14">
-        <PourScene drink={chosen} onDone={() => setPhase("make")} />
+        <PourScene
+          drink={chosen}
+          onDone={() => setPhase("make")}
+          blocked={safety !== null && safety !== "failed" && !safety.safe}
+          verification={
+            safety === "failed" ? (
+              <p className="rounded-2xl border-2 border-destructive/40 bg-destructive/5 p-5 text-sm">
+                We could not run the allergen check just now. Nothing has gone wrong with
+                the drink — we simply cannot confirm it, so please read the ingredients
+                yourself before making it.
+              </p>
+            ) : safety ? (
+              <AllergenScan report={safety} />
+            ) : null
+          }
+        />
       </div>
     );
   }

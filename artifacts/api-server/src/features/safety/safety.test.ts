@@ -153,3 +153,56 @@ test("an untagged allergen degrades to its id rather than vanishing", () => {
   assert.ok(sesame, "a newly tagged allergen must appear");
   assert.equal(sesame!.label, "sesame");
 });
+
+/* ------------------------------------------------------------------ */
+/* Malformed input                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The shape a caller sends is not something the check gets to assume.
+ *
+ * Entries it could not read a name from used to be skipped, so a caller
+ * passing bare strings got an empty trail and `safe: true` — a recipe with
+ * almond milk verified clear under a tree-nut allergy. Failing closed has to
+ * cover being called wrongly, not only being called with unknown ingredients.
+ */
+
+test("a bare string is read as a name rather than skipped", () => {
+  const report = checkRecipe(
+    ["Almond butter", "Mango"],
+    CATALOG,
+    constraintsFrom({ allergies: ["Tree Nuts"] }, CATALOG),
+  );
+  assert.equal(report.safe, false);
+  assert.equal(report.checks.length, 2);
+  assert.ok(report.blockedBy.includes("tree-nut"));
+});
+
+test("an entry with no readable name blocks under a stated allergy", () => {
+  const report = checkRecipe(
+    [{ nope: 1 }, { name: "Mango" }],
+    CATALOG,
+    constraintsFrom({ allergies: ["Tree Nuts"] }, CATALOG),
+  );
+  assert.equal(report.safe, false);
+  assert.ok(report.blockedBy.includes("unknown-ingredient"));
+  // The trail accounts for every entry, so the count cannot silently shrink.
+  assert.equal(report.checks.length, 2);
+});
+
+test("a malformed entry is reported, not silently dropped", () => {
+  const report = checkRecipe(
+    [null, { name: "Mango" }],
+    CATALOG,
+    constraintsFrom({ allergies: ["Tree Nuts"] }, CATALOG),
+  );
+  assert.equal(report.checks.length, 2);
+  assert.equal(report.unknownIngredients.length, 1);
+});
+
+test("with nothing stated, a malformed entry is still surfaced but passes", () => {
+  const report = checkRecipe([{ nope: 1 }], CATALOG, constraintsFrom({}, CATALOG));
+  assert.equal(report.safe, true);
+  assert.equal(report.checks.length, 1);
+  assert.equal(report.unknownIngredients.length, 1);
+});

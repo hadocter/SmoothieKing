@@ -266,8 +266,37 @@ export function checkRecipe(
   const blockedBy = new Set<string>();
 
   for (const raw of Array.isArray(recipeIngredients) ? recipeIngredients : []) {
-    const name = typeof raw?.name === "string" ? raw.name : null;
-    if (name === null) continue;
+    // An entry we cannot read a name out of is not an entry to skip past.
+    //
+    // Skipping was the behaviour, and it turned a caller sending the wrong
+    // shape — bare strings rather than `{ name }` — into an empty trail and a
+    // confident `safe: true`. A recipe containing almond milk verified clear
+    // for someone with a tree-nut allergy, because nothing had been checked
+    // and nothing said so. That is the same reassuring-wrong-answer shape as
+    // the check that once ran with no profile, and it is what failing closed
+    // exists to prevent. A plain string is read where one is given, and
+    // anything else counts as something we cannot identify.
+    const name =
+      typeof raw === "string"
+        ? raw
+        : typeof (raw as { name?: unknown })?.name === "string"
+          ? ((raw as { name: string }).name)
+          : null;
+
+    if (name === null) {
+      const label = "unreadable ingredient";
+      unknownIngredients.push(label);
+      const violations = stated ? ["unknown-ingredient"] : [];
+      for (const v of violations) blockedBy.add(v);
+      checks.push({
+        name: label,
+        contains: [],
+        animal: false,
+        violations,
+        passed: violations.length === 0,
+      });
+      continue;
+    }
 
     const key = name.trim().toLowerCase();
     const found = byName.get(key);
