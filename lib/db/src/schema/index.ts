@@ -7,3 +7,4 @@ export * from "./users";
 export * from "./user-profiles";
 export * from "./smoothie-logs";
 export * from "./goal-periods";
+export * from "./shelf-marks";

@@ -20,6 +20,7 @@ import Signup from '@/pages/auth/signup';
 import Login from '@/pages/auth/login';
 import Onboarding from '@/pages/onboarding';
 import MyPage from '@/pages/profile';
+import Shelf from '@/pages/shelf';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ function Router() {
         <Route path="/signup" component={Signup} />
         <Route path="/login" component={Login} />
         <Route path="/goals" component={Goals} />
+        <Route path="/shelf" component={Shelf} />
         <Route path="/goal" component={Goal} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/profile" component={MyPage} />

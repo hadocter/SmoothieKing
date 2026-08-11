@@ -1,12 +1,14 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
-import { db, recipesTable, userProfilesTable, type Recipe } from "@workspace/db";
+import { eq, and, inArray } from "drizzle-orm";
+import { db, recipesTable, userProfilesTable, goalPeriodsTable, shelfMarksTable, type Recipe } from "@workspace/db";
 import { optionalAuth, type AuthenticatedRequest } from "../../middlewares/auth.ts";
 import { GOALS, GOAL_MATCH_THRESHOLD, MAX_OFFERED } from "../scoring/index.ts";
 import { loadCatalog } from "../catalog/index.ts";
 import { scoresOf } from "../recommendation/index.ts";
 import { PRESETS, type BuildProfile, type Preset } from "./builder.ts";
 import { generateBatch, applyNaming, presentation, DEFAULT_BATCH } from "./generate.ts";
+import { weekIndexOf, skippedFrom } from "../shelf/index.ts";
+import { daysElapsed } from "../goals/goals.ts";
 
 const router: IRouter = Router();
 
@@ -36,6 +38,31 @@ function buildProfileFrom(
     dislikedIngredients: list("dislikedIngredients", profile?.dislikedIngredients),
     vegan: body.vegan === true,
   };
+}
+
+/** Ingredients the caller has refused for the current week, if any. */
+async function skippedThisWeek(userId: number | undefined): Promise<string[]> {
+  if (userId === undefined) return [];
+
+  const [period] = await db
+    .select()
+    .from(goalPeriodsTable)
+    .where(and(eq(goalPeriodsTable.userId, userId), eq(goalPeriodsTable.active, true)))
+    .limit(1);
+  if (!period) return [];
+
+  const marks = await db
+    .select({ ingredient: shelfMarksTable.ingredient, state: shelfMarksTable.state })
+    .from(shelfMarksTable)
+    .where(
+      and(
+        eq(shelfMarksTable.userId, userId),
+        eq(shelfMarksTable.goalPeriodId, period.id),
+        eq(shelfMarksTable.weekIndex, weekIndexOf(daysElapsed(period.startedAt))),
+      ),
+    );
+
+  return skippedFrom(marks);
 }
 
 /**
@@ -76,6 +103,23 @@ router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest,
 
   const catalog = await loadCatalog();
   const buildProfile = buildProfileFrom(body, goal, profile);
+
+  /**
+   * Anything refused on this week's shelf is built around, not built with.
+   *
+   * Folded into the disliked list rather than given its own channel: the
+   * builder already excludes those at every step and the allergen trail
+   * already expects them to be absent. Refusing an ingredient for a week and
+   * disliking it are the same instruction to a build, arrived at differently.
+   *
+   * Only `skipping`. Someone who marked an ingredient as one they are going to
+   * buy should still be offered drinks that use it — the list is a plan, and
+   * building around the plan would make the plan pointless.
+   */
+  const skipped = await skippedThisWeek(req.user?.userId);
+  if (skipped.length > 0) {
+    buildProfile.dislikedIngredients = [...buildProfile.dislikedIngredients, ...skipped];
+  }
   const built = generateBatch(buildProfile, catalog, { preset, count, seedBase });
 
   // Named after building, and only what is worth offering — see applyNaming.

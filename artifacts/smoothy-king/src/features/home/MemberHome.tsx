@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Blend, Target, Check, ArrowRight, Plus } from "lucide-react";
+import { Blend, Target, Check, ArrowRight, Plus, ShoppingBasket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoalBanner } from "@/features/goals/GoalBanner";
 import { getActiveGoal, type GoalPeriod } from "@/features/goals";
 import { getLogs, madeToday, type SmoothieLog, type HomeBlend } from "./index";
+import { getWeekShelf, type WeekShelf } from "@/features/shelf";
 
 /**
  * The day, for someone who is signed in.
@@ -26,6 +27,7 @@ export function MemberHome() {
   const { user, token } = useAuth();
   const [goal, setGoal] = useState<GoalPeriod | null>(null);
   const [logs, setLogs] = useState<SmoothieLog[]>([]);
+  const [shelf, setShelf] = useState<WeekShelf | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,13 +35,15 @@ export function MemberHome() {
     void (async () => {
       // Independent, and one failing should not blank the other: a goal with a
       // failed log request is still worth showing.
-      const [g, l] = await Promise.all([
+      const [g, l, s] = await Promise.all([
         getActiveGoal(token).catch(() => null),
         getLogs(token).catch(() => [] as SmoothieLog[]),
+        getWeekShelf(token).catch(() => null),
       ]);
       if (cancelled) return;
       setGoal(g);
       setLogs(l);
+      setShelf(s);
       setLoading(false);
     })();
     return () => {
@@ -119,6 +123,24 @@ export function MemberHome() {
                 </Button>
               </Link>
             </div>
+          )}
+
+          {/* This week's shopping, but only while it is still a question.
+              Once every item has an answer there is nothing to nudge about,
+              and a permanent banner is a permanent thing to ignore. */}
+          {shelf?.active && shelf.items.some((i) => i.state === null) && (
+            <Link href="/shelf" className="block">
+              <div className="rounded-2xl border border-dashed bg-card/50 p-5 flex items-center gap-4 hover:border-primary/40 transition-colors">
+                <ShoppingBasket className="w-6 h-6 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">This week, you&rsquo;ll need {shelf.items.length} things</p>
+                  <p className="text-sm text-muted-foreground">
+                    Enough for {shelf.drinksPossible} different drinks. Say what you already have.
+                  </p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              </div>
+            </Link>
           )}
 
           {/* What they have made. Absent, not empty, when there is none. */}

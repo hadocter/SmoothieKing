@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Droplet, Blend, Sparkles, Heart, Bookmark, Menu, Users, CreditCard, LogOut, UserCircle, Target } from "lucide-react";
+import { Droplet, Blend, Sparkles, Heart, Bookmark, Menu, Users, CreditCard, LogOut, UserCircle, Target, ShoppingBasket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-context";
@@ -27,6 +27,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navItems = isLoggedIn
     ? [
         { label: "Today", path: "/builder", icon: Blend },
+        { label: "This week", path: "/shelf", icon: ShoppingBasket },
         { label: "Goals", path: "/goals", icon: Target },
         { label: "My Blends", path: "/profile", icon: Heart },
         { label: "Community", path: "/community", icon: Users },

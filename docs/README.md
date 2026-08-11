@@ -87,6 +87,14 @@ write a useful sentence was in that object; it was simply never written. The
 client's own rule made it reachable — it accepted any `@`, the server required a
 real address, so the first time anyone heard the rule was as a rejected request.
 
+**A count measured two ways gave two answers.** The week's shopping list
+reported that ten ingredients made four drinks; the slot skeleton says they make
+twenty-four. Sampling the builder undercounts a narrowed catalog by six times,
+because it picks from a shortlist and a short list leaves it nothing to vary
+between — a fact about the variety mechanism, not about the shopping list. The
+figure is counted the same way as the catalogue-wide 440,640 now, so one being a
+slice of the other is a statement both numbers support.
+
 **A front door that does not know you.** One page served `/` regardless of
 session, so a member who clicked the logo was invited to join a community they
 were in and to explore a membership they had, under five steps describing a
