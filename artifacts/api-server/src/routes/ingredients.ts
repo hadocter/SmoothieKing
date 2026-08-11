@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, ingredientsTable } from "@workspace/db";
+import { presentIngredient } from "../features/catalog/presentation.ts";
 
 const router: IRouter = Router();
 
@@ -15,7 +16,7 @@ const router: IRouter = Router();
  */
 router.get("/ingredients", async (_req, res): Promise<void> => {
   const rows = await db.select().from(ingredientsTable);
-  res.json(rows);
+  res.json(rows.map(presentIngredient));
 });
 
 export default router;

@@ -121,6 +121,7 @@ test("a batch never offers two drinks with the same name", async () => {
     result: {
       picks: names.map((n, i) => ({ ...pick(n), step: i + 1, slot: i === 0 ? "liquid" : "flavor" })),
       excludedNames: [],
+      missingStructuralSlots: [],
       totalKcal: 100,
       totalProteinG: 5,
       totalGrams: 300,

@@ -59,16 +59,16 @@ export default function Recipes() {
         
         {/* Header & Search */}
         <div className="max-w-4xl mx-auto mb-16">
-          <h1 className="font-serif text-5xl font-medium mb-6">Official Recipes</h1>
+          <h1 className="font-serif text-5xl font-medium mb-6">Public Recipes</h1>
           <p className="text-muted-foreground text-lg mb-8 font-sans">
-            Expertly crafted blends by the Smoothy King lab. Every ingredient serves a purpose.
+            Kitchen recipes and community builds, each shown with its source. Every shared build follows the same ingredient constraints as the Builder.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input 
-                placeholder="Search by ingredient, name, or benefit..." 
+                placeholder="Search by ingredient, name, or goal..."
                 className="pl-12 h-14 rounded-full text-base bg-card shadow-sm border-muted-foreground/20"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -93,7 +93,7 @@ export default function Recipes() {
         <div className="bg-primary/5 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 mb-16 border border-primary/10">
           <div>
             <h2 className="font-serif text-3xl font-medium mb-3 text-primary">Prefer to make your own?</h2>
-            <p className="text-muted-foreground max-w-xl text-lg">Use our Builder to construct a functional smoothie based on your exact goals, watch your benefit score rise, and publish it to the community.</p>
+            <p className="text-muted-foreground max-w-xl text-lg">Use the Builder to make a balanced smoothie for your preferences, then share the finished recipe with the community.</p>
           </div>
           <Link href="/builder">
             <Button size="lg" className="rounded-full whitespace-nowrap h-14 px-8 text-lg gap-2 shadow-lg shadow-primary/20">
@@ -142,6 +142,8 @@ export default function Recipes() {
                     </div>
                     <button 
                       onClick={(e) => toggleFavorite(e, recipe.id)}
+                      aria-label={favorites.includes(recipe.id) ? `Remove ${recipe.name} from saved recipes` : `Save ${recipe.name}`}
+                      aria-pressed={favorites.includes(recipe.id)}
                       className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors shadow-sm mix-blend-hard-light"
                     >
                       <Heart className={`w-5 h-5 transition-transform ${favorites.includes(recipe.id) ? 'fill-white text-white scale-110' : 'text-white'}`} />
@@ -150,6 +152,9 @@ export default function Recipes() {
 
                   {/* Bottom Content */}
                   <div className="absolute bottom-6 left-6 right-6">
+                    <span className="mb-2 inline-flex rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
+                      {recipe.source === "generated" ? "Built by a member" : "Kitchen recipe"}
+                    </span>
                     <h3 className="text-white font-serif text-3xl font-medium mb-1 line-clamp-1">{recipe.name}</h3>
                     <p className="text-white/80 text-sm font-medium tracking-wide line-clamp-1 mb-4">{recipe.tagline}</p>
                     

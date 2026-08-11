@@ -82,7 +82,13 @@ router.get("/recipes", async (req, res): Promise<void> => {
   if (search) {
     const q = search.toLowerCase();
     result = result.filter(
-      (r) => r.name.toLowerCase().includes(q) || (r.description ?? "").toLowerCase().includes(q),
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.description ?? "").toLowerCase().includes(q) ||
+        r.benefits.some((benefit) => benefit.toLowerCase().includes(q)) ||
+        (r.ingredients as { name?: unknown }[]).some(
+          (ingredient) => typeof ingredient.name === "string" && ingredient.name.toLowerCase().includes(q),
+        ),
     );
   }
 

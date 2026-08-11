@@ -199,7 +199,7 @@ export default function MyPage() {
                   Click the heart icon on any recipe to save it to your personal collection.
                 </p>
                 <Link href="/recipes">
-                  <Button size="lg" className="rounded-full px-8">Explore Official Recipes</Button>
+                  <Button size="lg" className="rounded-full px-8">Explore Public Recipes</Button>
                 </Link>
               </div>
             ) : (

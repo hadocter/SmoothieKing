@@ -26,7 +26,7 @@ export default function Ingredients() {
         <div className="max-w-4xl mx-auto mb-16 text-center">
           <h1 className="font-serif text-5xl font-medium mb-6">The Glossary</h1>
           <p className="text-muted-foreground text-lg mb-8 font-sans">
-            Every ingredient in the Smoothy King lab is chosen with purpose. Explore our functional library.
+            A practical guide to every ingredient used by the Builder, with its role and catalog highlights.
           </p>
           <Input 
             placeholder="Search ingredients, categories, or benefits..." 
@@ -46,8 +46,22 @@ export default function Ingredients() {
               <p className="font-serif text-2xl">No ingredients found.</p>
             </div>
           ) : (
-            filtered.map((ing) => (
+            filtered.map((ing: any) => (
               <div key={ing.id} className="bg-card rounded-3xl p-6 border shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                <div
+                  className="-mx-6 -mt-6 mb-5 h-36 overflow-hidden"
+                  style={{ background: ing.gradient }}
+                  aria-hidden="true"
+                >
+                  {ing.imageUrl && (
+                    <img
+                      src={ing.imageUrl}
+                      alt=""
+                      onError={(event) => { event.currentTarget.style.display = "none"; }}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  )}
+                </div>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Sparkles className="w-24 h-24" />
                 </div>
@@ -57,10 +71,6 @@ export default function Ingredients() {
                     {ing.category}
                   </span>
                   <h3 className="font-serif text-3xl font-medium mb-1">{ing.name}</h3>
-                  {ing.koreanName && (
-                    <div className="text-sm font-medium text-primary mb-4">{ing.koreanName}</div>
-                  )}
-                  
                   <p className="text-muted-foreground text-sm mb-6 line-clamp-3">
                     {ing.description}
                   </p>
@@ -68,10 +78,10 @@ export default function Ingredients() {
                   <div className="space-y-4">
                     <div>
                       <div className="text-xs uppercase font-bold text-muted-foreground mb-2 flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Core Benefits
+                        <Info className="w-3 h-3" /> Builder goals
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {ing.benefits.map((b, i) => (
+                        {ing.benefits.map((b: string, i: number) => (
                           <span key={i} className={`text-xs px-2 py-1 rounded-md font-bold ${GOAL_COLORS[b] || 'bg-muted text-muted-foreground'}`}>
                             {GOAL_LABELS[b] || b}
                           </span>
