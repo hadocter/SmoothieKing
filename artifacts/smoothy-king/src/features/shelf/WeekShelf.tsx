@@ -144,7 +144,7 @@ export function WeekShelf() {
                     : "bg-card"
               }`}
             >
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-x-3 sm:gap-y-2">
                 <div className="min-w-0 flex-1">
                   <p
                     className={`font-medium ${item.state === "skipping" ? "line-through text-muted-foreground" : ""}`}
@@ -159,7 +159,7 @@ export function WeekShelf() {
                   </p>
                 </div>
 
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex w-full gap-1.5 shrink-0 self-start sm:w-auto sm:self-auto">
                   {SHELF_ANSWERS.map((a) => (
                     <button
                       key={a.state}
@@ -168,7 +168,7 @@ export function WeekShelf() {
                       aria-pressed={item.state === a.state}
                       disabled={pending === item.name}
                       onClick={() => void answer(item, a.state)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
                         item.state === a.state
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background border-border hover:border-primary/50"
