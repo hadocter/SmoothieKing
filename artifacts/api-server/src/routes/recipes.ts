@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { invalid } from "../lib/validation.ts";
 import { eq, and } from "drizzle-orm";
 import { db, recipesTable } from "@workspace/db";
 import { ListRecipesQueryParams, GetRecipeParams } from "@workspace/api-zod";
@@ -69,7 +70,7 @@ router.get("/recipes/by-benefit", async (_req, res): Promise<void> => {
 router.get("/recipes", async (req, res): Promise<void> => {
   const parsed = ListRecipesQueryParams.safeParse(req.query);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    invalid(res, parsed.error);
     return;
   }
 
@@ -115,13 +116,13 @@ router.post("/recipes/:id/publish", requireAuth, async (req: AuthenticatedReques
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetRecipeParams.safeParse({ id: raw });
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    invalid(res, params.error);
     return;
   }
 
   const published = (req.body ?? {}).published;
   if (typeof published !== "boolean") {
-    res.status(400).json({ error: "published must be true or false" });
+    res.status(400).json({ error: "We couldn't tell whether to publish or unpublish that." });
     return;
   }
 
@@ -169,7 +170,7 @@ router.patch("/recipes/:id", requireAuth, async (req: AuthenticatedRequest, res)
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetRecipeParams.safeParse({ id: raw });
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    invalid(res, params.error);
     return;
   }
 
@@ -179,7 +180,7 @@ router.patch("/recipes/:id", requireAuth, async (req: AuthenticatedRequest, res)
   if (typeof body.name === "string") {
     const name = body.name.trim().slice(0, 80);
     if (!name) {
-      res.status(400).json({ error: "name cannot be empty" });
+      res.status(400).json({ error: "Give it a name before saving." });
       return;
     }
     patch.name = name;
@@ -187,21 +188,21 @@ router.patch("/recipes/:id", requireAuth, async (req: AuthenticatedRequest, res)
   if (typeof body.description === "string") patch.description = body.description.trim().slice(0, 1000);
   if (typeof body.imageUrl === "string") {
     if (body.imageUrl.length > MAX_IMAGE_CHARS) {
-      res.status(413).json({ error: "Image is too large" });
+      res.status(413).json({ error: "That photo is too large. Try one under 2 MB." });
       return;
     }
     // Only inline data or nothing. A remote URL here would let a recipe pull
     // an image from anywhere, which is someone else's bandwidth and a tracking
     // pixel waiting to happen.
     if (body.imageUrl && !body.imageUrl.startsWith("data:image/")) {
-      res.status(400).json({ error: "imageUrl must be an inline image" });
+      res.status(400).json({ error: "That photo couldn't be read. Pick a different one." });
       return;
     }
     patch.imageUrl = body.imageUrl;
   }
 
   if (Object.keys(patch).length === 0) {
-    res.status(400).json({ error: "Nothing to change" });
+    res.status(400).json({ error: "Nothing was changed." });
     return;
   }
 
@@ -231,7 +232,7 @@ router.get("/recipes/:id", optionalAuth, async (req: AuthenticatedRequest, res):
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetRecipeParams.safeParse({ id: raw });
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    invalid(res, params.error);
     return;
   }
 

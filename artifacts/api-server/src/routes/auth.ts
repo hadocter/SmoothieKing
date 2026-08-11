@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { invalid } from "../lib/validation.ts";
 import { eq } from "drizzle-orm";
 import { db, usersTable, type User } from "@workspace/db";
 import { hashPassword, verifyPassword, createToken } from "../lib/auth.ts";
@@ -37,7 +38,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   try {
     const parsed = SignupBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+      invalid(res, parsed.error);
       return;
     }
 
@@ -88,7 +89,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   try {
     const parsed = LoginBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+      invalid(res, parsed.error);
       return;
     }
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blend, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { errorMessage } from "@/features/api";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -19,11 +20,44 @@ export default function Signup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
+  /**
+   * The same rule the server enforces.
+   *
+   * This used to be `email.includes("@")`, which let `name@host` through the
+   * form and straight into a server that requires a real address — so the
+   * first time anyone heard the rule was as a rejected request. The two must
+   * agree, and the client is the side that can say so before a round trip.
+   */
+  const emailLooksRight = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+
+  const touched = { email: email.length > 0, password: password.length > 0 };
+  const errors = {
+    email: touched.email && !emailLooksRight ? "That doesn't look like an email address yet." : null,
+    password: touched.password && password.length < 6 ? "Use at least 6 characters." : null,
+    confirm:
+      confirmPassword.length > 0 && password !== confirmPassword
+        ? "These two don't match."
+        : null,
+  };
+
   const isValid =
-    email.includes("@") &&
+    emailLooksRight &&
     password.length >= 6 &&
     password === confirmPassword &&
     nickname.trim().length > 0;
+
+  /** Why the button is off, so a disabled control is never a silent refusal. */
+  const blocker = !nickname.trim()
+    ? "Pick a nickname to continue."
+    : !email.trim()
+      ? "Add your email to continue."
+      : !emailLooksRight
+        ? "Check the email address."
+        : password.length < 6
+          ? "Your password needs at least 6 characters."
+          : password !== confirmPassword
+            ? "The two passwords need to match."
+            : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,9 +75,12 @@ export default function Signup() {
           // given yet.
           setLocation("/goal");
         },
-        onError: (err: any) => {
-          const message = err?.data?.error || err?.message || "Failed to create account.";
-          toast({ title: "Error", description: message, variant: "destructive" });
+        onError: (err: unknown) => {
+          toast({
+            title: "Couldn't create your account",
+            description: errorMessage(err, "Please check the form and try again."),
+            variant: "destructive",
+          });
         },
       }
     );
@@ -85,7 +122,14 @@ export default function Signup() {
               className="h-12 rounded-xl bg-background"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? "signup-email-error" : undefined}
             />
+            {errors.email && (
+              <p id="signup-email-error" className="text-xs text-destructive mt-1">
+                {errors.email}
+              </p>
+            )}
           </div>
 
           <div>
@@ -107,8 +151,10 @@ export default function Signup() {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            {password.length > 0 && password.length < 6 && (
-              <p className="text-xs text-destructive mt-1">Password must be at least 6 characters</p>
+            {errors.password && (
+              <p id="signup-password-error" className="text-xs text-destructive mt-1">
+                {errors.password}
+              </p>
             )}
           </div>
 
@@ -122,8 +168,10 @@ export default function Signup() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
-            {confirmPassword.length > 0 && password !== confirmPassword && (
-              <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+            {errors.confirm && (
+              <p id="signup-confirm-error" className="text-xs text-destructive mt-1">
+                {errors.confirm}
+              </p>
             )}
           </div>
 
@@ -137,6 +185,12 @@ export default function Signup() {
             {signupMutation.isPending ? "Creating Account..." : "Get Started"}
             <ArrowRight className="w-5 h-5" />
           </Button>
+
+          {/* A greyed-out button that will not say why is its own kind of
+              unhelpful error. */}
+          {blocker && !signupMutation.isPending && (
+            <p className="text-sm text-muted-foreground text-center">{blocker}</p>
+          )}
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-8">

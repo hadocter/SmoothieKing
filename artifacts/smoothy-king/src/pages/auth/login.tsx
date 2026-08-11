@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blend, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { errorMessage } from "@/features/api";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -31,9 +32,12 @@ export default function Login() {
           toast({ title: "Welcome Back! 👋", description: `Good to see you again, ${data.user.nickname}!` });
           setLocation("/");
         },
-        onError: (err: any) => {
-          const message = err?.data?.error || err?.message || "Failed to log in.";
-          toast({ title: "Error", description: message, variant: "destructive" });
+        onError: (err: unknown) => {
+          toast({
+            title: "Couldn't log you in",
+            description: errorMessage(err, "Check your email and password, then try again."),
+            variant: "destructive",
+          });
         },
       }
     );

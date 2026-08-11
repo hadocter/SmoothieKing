@@ -79,6 +79,14 @@ occupied went to figures that are true by construction: 43 ingredients and
 440,640 possible drinks, computed from the catalog and the build skeleton on
 every request rather than written down.
 
+**The error message nobody wrote.** Every route answered a failed parse with
+`parsed.error.message`, and on Zod that is the issue array, stringified. Someone
+typing an address without a dot in it got `[ { "validation": "email", "code":
+"invalid_string", … } ]` in a red box on the signup screen. Everything needed to
+write a useful sentence was in that object; it was simply never written. The
+client's own rule made it reachable — it accepted any `@`, the server required a
+real address, so the first time anyone heard the rule was as a rejected request.
+
 **A front door that does not know you.** One page served `/` regardless of
 session, so a member who clicked the logo was invited to join a community they
 were in and to explore a membership they had, under five steps describing a

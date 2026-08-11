@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { invalid } from "../lib/validation.ts";
 import { eq } from "drizzle-orm";
 import { db, userProfilesTable, type UserProfile } from "@workspace/db";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
@@ -42,7 +43,7 @@ router.post("/user/onboarding", requireAuth, async (req: AuthenticatedRequest, r
   try {
     const parsed = SubmitOnboardingBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+      invalid(res, parsed.error);
       return;
     }
 
@@ -99,7 +100,7 @@ router.put("/user/profile", requireAuth, async (req: AuthenticatedRequest, res):
   try {
     const parsed = SubmitOnboardingBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+      invalid(res, parsed.error);
       return;
     }
 

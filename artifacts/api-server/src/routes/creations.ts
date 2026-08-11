@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { invalid } from "../lib/validation.ts";
 import { eq, desc, sql, count, gte } from "drizzle-orm";
 import {
   db,
@@ -28,7 +29,7 @@ const router: IRouter = Router();
 router.get("/creations", async (req, res): Promise<void> => {
   const parsed = ListCreationsQueryParams.safeParse(req.query);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    invalid(res, parsed.error);
     return;
   }
   const { sort, goal } = parsed.data;
@@ -85,7 +86,7 @@ router.get("/community/stats", async (_req, res): Promise<void> => {
 router.post("/creations", async (req, res): Promise<void> => {
   const parsed = CreateCreationBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    invalid(res, parsed.error);
     return;
   }
 
@@ -130,7 +131,7 @@ router.post("/creations/:id/like", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw ?? "", 10);
   if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid id" });
+    res.status(400).json({ error: "We couldn't find that post." });
     return;
   }
 
@@ -153,7 +154,7 @@ router.post("/creations/:id/unlike", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw ?? "", 10);
   if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid id" });
+    res.status(400).json({ error: "We couldn't find that post." });
     return;
   }
 

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { invalid } from "../lib/validation.ts";
 import { and, eq } from "drizzle-orm";
 import { db, favoritesTable } from "@workspace/db";
 import { requireAuth, optionalAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
@@ -40,7 +41,7 @@ router.post("/favorites", requireAuth, async (req: AuthenticatedRequest, res): P
   try {
     const parsed = AddFavoriteBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+      invalid(res, parsed.error);
       return;
     }
 
@@ -67,7 +68,7 @@ router.delete("/favorites/:recipeId", requireAuth, async (req: AuthenticatedRequ
     const raw = Array.isArray(req.params.recipeId) ? req.params.recipeId[0] : req.params.recipeId;
     const params = RemoveFavoriteParams.safeParse({ recipeId: raw });
     if (!params.success) {
-      res.status(400).json({ error: params.error.message });
+      invalid(res, params.error);
       return;
     }
 

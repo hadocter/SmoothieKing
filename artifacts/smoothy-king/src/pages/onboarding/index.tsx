@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
 import { getActiveGoal } from "@/features/goals";
+import { errorMessage } from "@/features/api";
 import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -154,9 +155,11 @@ export default function Onboarding() {
           setStep(5); // Complete step
         },
         onError: (err: unknown) => {
-          const message =
-            (err as { data?: { error?: string } })?.data?.error ?? "Please try again.";
-          toast({ title: "Save Failed", description: message, variant: "destructive" });
+          toast({
+            title: "Couldn't save your profile",
+            description: errorMessage(err, "Please try again."),
+            variant: "destructive",
+          });
         },
       }
     );
