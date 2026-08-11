@@ -1,4 +1,5 @@
 import type { Ingredient } from "@workspace/db";
+import { INGREDIENT_PHOTOS } from "./food-photos.generated.ts";
 
 /**
  * Reader-facing ingredient copy.
@@ -11,20 +12,23 @@ import type { Ingredient } from "@workspace/db";
  * their old copy forever.
  */
 
-const STOCK_PHOTOS: Record<string, string> = {
-  Mango: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=1200&q=82",
-  "Dragon Fruit": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=1200&q=82",
-  "Coconut Water": "https://images.unsplash.com/photo-1560717845-968823efbee1?auto=format&fit=crop&w=1200&q=82",
-  Blueberry: "https://images.unsplash.com/photo-1494597564530-871f2b93ac55?auto=format&fit=crop&w=1200&q=82",
-  Watermelon: "https://images.unsplash.com/photo-1560717845-968823efbee1?auto=format&fit=crop&w=1200&q=82",
-  Spinach: "https://images.unsplash.com/photo-1622484211771-9b93ca12b41e?auto=format&fit=crop&w=1200&q=82",
-  Kefir: "https://images.unsplash.com/photo-1494597564530-871f2b93ac55?auto=format&fit=crop&w=1200&q=82",
-  "Whey Protein Isolate": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8?auto=format&fit=crop&w=1200&q=82",
-  "Greek yogurt": "https://images.unsplash.com/photo-1494597564530-871f2b93ac55?auto=format&fit=crop&w=1200&q=82",
-  Avocado: "https://images.unsplash.com/photo-1622484211771-9b93ca12b41e?auto=format&fit=crop&w=1200&q=82",
-  Strawberry: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=1200&q=82",
-  Strawberries: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=1200&q=82",
-};
+/**
+ * Ingredient name to its bundled photo path, or null for the gradient.
+ *
+ * The photos are searched by name and downloaded into the web app's static
+ * folder by scripts/fetch-food-photos.mjs, so nothing is loaded from
+ * unsplash.com at runtime — a demo cannot be broken by their CDN. The list
+ * this replaced was a hand-typed set of remote URLs that mapped Coconut Water
+ * to a photo of salmon and gave three different ingredients the same picture.
+ *
+ * Only names in the generated manifest get a URL; an ingredient with no
+ * fitting photo returns null and the card shows its own gradient. So a missing
+ * photo is a deliberate absence rather than a broken image request.
+ */
+function photoFor(name: string): string | null {
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return INGREDIENT_PHOTOS.has(slug) ? `/food/ingredients/${slug}.jpg` : null;
+}
 
 const CATEGORY_NOUN: Record<string, string> = {
   fruit: "fruit",
@@ -59,7 +63,7 @@ export function presentIngredient(ingredient: Ingredient): PresentedIngredient {
   return {
     ...ingredient,
     description: `${ingredient.name} is a ${CATEGORY_NOUN[ingredient.category] ?? "smoothie"} used ${role}.${flavor} The catalog highlights ${highlights}.`,
-    imageUrl: STOCK_PHOTOS[ingredient.name] ?? null,
+    imageUrl: photoFor(ingredient.name),
     gradient: `radial-gradient(circle at 18% 14%, rgba(255,255,255,.72), transparent 34%), linear-gradient(145deg, ${hex}, #172033)`,
   };
 }
