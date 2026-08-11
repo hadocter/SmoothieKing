@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { invalid } from "../lib/validation.ts";
 import { eq, and } from "drizzle-orm";
-import { db, recipesTable } from "@workspace/db";
+import { db, recipesTable, type Recipe } from "@workspace/db";
 import { ListRecipesQueryParams, GetRecipeParams } from "@workspace/api-zod";
 import { optionalAuth, requireAuth, type AuthenticatedRequest } from "../middlewares/auth.ts";
 import { GOALS } from "../features/scoring/index.ts";
+import { makesClaim, sanitiseStory } from "../features/naming/index.ts";
 
 const router: IRouter = Router();
 
@@ -24,12 +25,53 @@ const router: IRouter = Router();
 /** Only published recipes are visible on the browsing routes. */
 const visible = eq(recipesTable.published, true);
 
+function ingredientNames(ingredients: unknown): string[] {
+  if (!Array.isArray(ingredients)) return [];
+  return ingredients
+    .map((ingredient) => (ingredient && typeof ingredient === "object" && typeof ingredient.name === "string" ? ingredient.name : null))
+    .filter((name): name is string => name !== null);
+}
+
+/**
+ * Database copy is a record of how a recipe was originally written, not a
+ * licence to repeat an old treatment claim on every public page. Curated rows
+ * get neutral editorial copy; member rows retain their voice after the same
+ * claim filter used by the naming flow. Private drafts stay untouched.
+ */
+function presentPublicRecipe(recipe: Recipe): Recipe {
+  const names = ingredientNames(recipe.ingredients);
+  const ingredientLine = names.length > 0 ? names.slice(0, 4).join(", ") : "the listed ingredients";
+  const safeName = makesClaim(recipe.name) ? "Shared smoothie" : recipe.name;
+
+  if (recipe.source === "curated") {
+    return {
+      ...recipe,
+      name: safeName,
+      tagline: `A kitchen recipe with ${ingredientLine}.`,
+      description: `A kitchen-built recipe made with ${ingredientLine}.`,
+      ingredients: Array.isArray(recipe.ingredients)
+        ? recipe.ingredients.map((ingredient) => ({
+            ...(ingredient && typeof ingredient === "object" ? ingredient : {}),
+            benefit: null,
+          }))
+        : [],
+    };
+  }
+
+  return {
+    ...recipe,
+    name: safeName,
+    tagline: "A smoothie shared by a community member.",
+    description: sanitiseStory(recipe.description ?? "") || "A smoothie shared by a community member.",
+  };
+}
+
 router.get("/recipes/featured", async (_req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(recipesTable)
     .where(and(visible, eq(recipesTable.isFeatured, true)));
-  res.json(rows);
+  res.json(rows.map(presentPublicRecipe));
 });
 
 /**
@@ -61,7 +103,7 @@ router.get("/recipes/by-benefit", async (_req, res): Promise<void> => {
     // Grouped on the editorial `benefits` tags, deliberately. This is the
     // browsing view — it should show what a recipe was written to be, not what
     // a scoring function computed about it. Matching is the route for scores.
-    recipes: rows.filter((r) => r.benefits.includes(benefit)),
+    recipes: rows.filter((r) => r.benefits.includes(benefit)).map(presentPublicRecipe),
   })).filter((g) => g.recipes.length > 0);
 
   res.json(groups);
@@ -92,7 +134,7 @@ router.get("/recipes", async (req, res): Promise<void> => {
     );
   }
 
-  res.json(result);
+  res.json(result.map(presentPublicRecipe));
 });
 
 /**
@@ -189,9 +231,16 @@ router.patch("/recipes/:id", requireAuth, async (req: AuthenticatedRequest, res)
       res.status(400).json({ error: "Give it a name before saving." });
       return;
     }
+    if (makesClaim(name)) {
+      res.status(400).json({ error: "Names can describe the drink, but cannot make a health claim." });
+      return;
+    }
     patch.name = name;
   }
-  if (typeof body.description === "string") patch.description = body.description.trim().slice(0, 1000);
+  if (typeof body.description === "string") {
+    const description = sanitiseStory(body.description.trim().slice(0, 1000));
+    patch.description = description || "A smoothie shared by a community member.";
+  }
   if (typeof body.imageUrl === "string") {
     if (body.imageUrl.length > MAX_IMAGE_CHARS) {
       res.status(413).json({ error: "That photo is too large. Try one under 2 MB." });
@@ -259,7 +308,7 @@ router.get("/recipes/:id", optionalAuth, async (req: AuthenticatedRequest, res):
     return;
   }
 
-  res.json(recipe);
+  res.json(recipe.published ? presentPublicRecipe(recipe) : recipe);
 });
 
 export default router;
