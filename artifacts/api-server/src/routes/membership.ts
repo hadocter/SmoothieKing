@@ -53,13 +53,4 @@ router.get("/plans", async (_req, res): Promise<void> => {
   res.json(MOCK_PLANS);
 });
 
-router.get("/community/stats", async (_req, res): Promise<void> => {
-  res.json({
-    members: 2841,
-    creationsThisWeek: 47,
-    ritualsCompleted: 19260,
-    topGoal: "glowy-skin",
-  });
-});
-
 export default router;

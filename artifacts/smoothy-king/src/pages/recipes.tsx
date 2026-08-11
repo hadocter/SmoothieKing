@@ -5,7 +5,7 @@ import { Search, Heart, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
+import { GOAL_COLORS, GOAL_LABELS, gradientForGoals } from "@/lib/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListRecipesQueryKey, getListFavoritesQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
@@ -115,12 +115,17 @@ export default function Recipes() {
           ) : (
             recipes.map((recipe: any) => (
               <Link key={recipe.id} href={`/recipes/${recipe.id}`} className="group block">
-                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden mb-4 bg-muted shadow-sm group-hover:shadow-xl transition-all duration-500">
-                  <img 
-                    src={recipe.imageUrl || "https://images.unsplash.com/photo-1553530666-ba11a7dd0dc9?auto=format&fit=crop&q=80&w=800"} 
-                    alt={recipe.name} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                <div
+                  className="relative aspect-[4/5] rounded-3xl overflow-hidden mb-4 bg-muted shadow-sm group-hover:shadow-xl transition-all duration-500"
+                  style={recipe.imageUrl ? undefined : { background: gradientForGoals(recipe.benefits) }}
+                >
+                  {recipe.imageUrl && (
+                    <img
+                      src={recipe.imageUrl}
+                      alt={recipe.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90" />
                   
                   {/* Top Bar */}

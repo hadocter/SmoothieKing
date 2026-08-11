@@ -1,6 +1,8 @@
 import { db, ingredientsTable } from "@workspace/db";
 import type { BuildableIngredient } from "../generation/index.ts";
 
+export * from "./stats.ts";
+
 /**
  * The ingredient catalog, in the shape the other features need.
  *

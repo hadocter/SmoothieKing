@@ -54,3 +54,23 @@ export const GOAL_HEX: Record<string, string> = {
 };
 
 export const GOALS = Object.keys(GOAL_LABELS);
+
+/**
+ * A card's background when the drink has no photograph.
+ *
+ * Most drinks have none — they are built rather than shot, and a photo is
+ * optional on the publish screen by design. The fallback used to be one stock
+ * photograph of a strawberry smoothie, served for every recipe that lacked an
+ * image: a picture of a drink that is not the drink, repeated down the page
+ * until the images stopped meaning anything.
+ *
+ * The goals it serves are at least about this drink. Generated drinks get a
+ * gradient from their own ingredients instead; this is for the catalog rows,
+ * which have benefits but no ingredient colours to hand.
+ */
+export function gradientForGoals(benefits: string[] | undefined | null): string {
+  const stops = (benefits ?? []).map((b) => GOAL_HEX[b]).filter(Boolean);
+  if (stops.length === 0) return 'var(--color-muted)';
+  if (stops.length === 1) return stops[0];
+  return `linear-gradient(150deg, ${stops.join(', ')})`;
+}

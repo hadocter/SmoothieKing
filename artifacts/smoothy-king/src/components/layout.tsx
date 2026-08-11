@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Droplet, Blend, Sparkles, Heart, Menu, Users, CreditCard, X, LogOut, UserCircle, Target } from "lucide-react";
+import { Droplet, Blend, Sparkles, Heart, Bookmark, Menu, Users, CreditCard, LogOut, UserCircle, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-context";
@@ -9,14 +9,35 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { user, isLoggedIn, logout } = useAuth();
 
-  const navItems = [
-    { label: "Today", path: "/builder", icon: Blend },
-    { label: "Goals", path: "/goals", icon: Target },
-    { label: "Community", path: "/community", icon: Users },
-    { label: "Recipes", path: "/recipes", icon: Sparkles },
-    { label: "Ingredients", path: "/ingredients", icon: Droplet },
-    { label: "Membership", path: "/membership", icon: CreditCard },
-  ];
+  /**
+   * Different doors for different people.
+   *
+   * One list was shown to everyone, which got it wrong in both directions. A
+   * visitor was offered Today, Goals and Favorites — three screens that need
+   * an account and answer with a login prompt or an empty state, so the first
+   * thing the nav did was hand out dead ends. A member was offered Membership
+   * for as long as they stayed, which is a service selling someone what they
+   * already bought.
+   *
+   * Nothing is locked by this. The routes are unchanged and a signed-out
+   * visitor who types /goals still gets the same screen they got before. What
+   * changes is what the app puts in front of you, which is the cheapest thing
+   * it can do to look like it knows who you are.
+   */
+  const navItems = isLoggedIn
+    ? [
+        { label: "Today", path: "/builder", icon: Blend },
+        { label: "Goals", path: "/goals", icon: Target },
+        { label: "My Blends", path: "/profile", icon: Heart },
+        { label: "Community", path: "/community", icon: Users },
+        { label: "Recipes", path: "/recipes", icon: Sparkles },
+      ]
+    : [
+        { label: "How it works", path: "/", icon: Sparkles },
+        { label: "Recipes", path: "/recipes", icon: Droplet },
+        { label: "Community", path: "/community", icon: Users },
+        { label: "Membership", path: "/membership", icon: CreditCard },
+      ];
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary/20">
@@ -43,11 +64,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                 {item.label}
               </Link>
             ))}
-            <Link href="/favorites">
-              <Button variant="ghost" size="icon" className="text-primary rounded-full">
-                <Heart className="h-5 w-5" />
-              </Button>
-            </Link>
+            {/* Saved recipes are per-account; offering the shortcut to a
+                visitor leads only to a login prompt. */}
+            {isLoggedIn && (
+              <Link href="/favorites">
+                <Button variant="ghost" size="icon" className="text-primary rounded-full" title="Saved">
+                  <Bookmark className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
 
             {isLoggedIn ? (
               <div className="flex items-center gap-3 border-l pl-6">
@@ -73,11 +98,13 @@ export default function Layout({ children }: { children: ReactNode }) {
 
           {/* Mobile Nav */}
           <div className="flex items-center gap-2 md:hidden">
-            <Link href="/favorites">
-              <Button variant="ghost" size="icon" className="text-primary rounded-full">
-                <Heart className="h-5 w-5" />
-              </Button>
-            </Link>
+            {isLoggedIn && (
+              <Link href="/favorites">
+                <Button variant="ghost" size="icon" className="text-primary rounded-full" title="Saved">
+                  <Bookmark className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="text-primary">
@@ -142,10 +169,26 @@ export default function Layout({ children }: { children: ReactNode }) {
             Beauty and health built one intentional ingredient at a time.
           </p>
           <div className="flex items-center justify-center gap-6 text-sm font-sans text-muted-foreground">
-            <Link href="/recipes" className="hover:text-primary transition-colors">Recipes</Link>
-            <Link href="/ingredients" className="hover:text-primary transition-colors">Ingredients</Link>
-            <Link href="/community" className="hover:text-primary transition-colors">Community</Link>
-            <Link href="/membership" className="hover:text-primary transition-colors">Membership</Link>
+            {/* Same rule as the header: nothing here sells a member what they
+                already have, and nothing offers a visitor a signed-in screen. */}
+            {(isLoggedIn
+              ? [
+                  { label: "Today", path: "/builder" },
+                  { label: "Goals", path: "/goals" },
+                  { label: "Community", path: "/community" },
+                  { label: "Ingredients", path: "/ingredients" },
+                ]
+              : [
+                  { label: "Recipes", path: "/recipes" },
+                  { label: "Ingredients", path: "/ingredients" },
+                  { label: "Community", path: "/community" },
+                  { label: "Membership", path: "/membership" },
+                ]
+            ).map((l) => (
+              <Link key={l.path} href={l.path} className="hover:text-primary transition-colors">
+                {l.label}
+              </Link>
+            ))}
           </div>
           <div className="mt-12 text-xs text-muted-foreground/60">
             &copy; {new Date().getFullYear()} Smoothy King. All rights reserved.

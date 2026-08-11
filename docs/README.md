@@ -69,3 +69,19 @@ because a 429 was being treated like a permanent failure.
 **A silent degradation is worse than a visible one.** An allergen check that ran
 with no profile returned "clear" — the reassuring wrong answer, delivered
 without a word.
+
+**The one number nobody checks is the one that gets invented.** The landing
+page reported 2,841 members and 19,260 rituals completed — hardcoded on the
+server, and hardcoded a second time in the client as its fallback, so the
+figures survived an empty database, a failed request and a fresh deployment
+identically. They are counted now and allowed to be small. The space they
+occupied went to figures that are true by construction: 43 ingredients and
+440,640 possible drinks, computed from the catalog and the build skeleton on
+every request rather than written down.
+
+**A front door that does not know you.** One page served `/` regardless of
+session, so a member who clicked the logo was invited to join a community they
+were in and to explore a membership they had, under five steps describing a
+build flow that two rewrites had removed. The signed-in half is now the day —
+the goal in their own words, whether today's drink has been made, what they
+made before — assembled from components that already existed.

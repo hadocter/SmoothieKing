@@ -3,7 +3,7 @@ import { useGetRecipe, useListFavorites, useAddFavorite, useRemoveFavorite } fro
 import { Heart, Clock, Users, Flame, ArrowLeft, Blend, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
+import { GOAL_COLORS, GOAL_LABELS, gradientForGoals } from "@/lib/colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListFavoritesQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
@@ -101,12 +101,13 @@ export default function RecipeDetail() {
           
           {/* Image Side */}
           <div className="sticky top-24">
-            <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden shadow-2xl">
-              <img 
-                src={recipe.imageUrl || "https://images.unsplash.com/photo-1553530666-ba11a7dd0dc9?auto=format&fit=crop&q=80&w=1200"} 
-                alt={recipe.name} 
-                className="w-full h-full object-cover"
-              />
+            <div
+              className="relative aspect-[4/5] rounded-[2rem] overflow-hidden shadow-2xl bg-muted"
+              style={recipe.imageUrl ? undefined : { background: gradientForGoals(recipe.benefits) }}
+            >
+              {recipe.imageUrl && (
+                <img src={recipe.imageUrl} alt={recipe.name} className="w-full h-full object-cover" />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent mix-blend-multiply" />
             </div>
           </div>

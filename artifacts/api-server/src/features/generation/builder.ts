@@ -299,6 +299,40 @@ const STEPS: Step[] = [
   },
 ];
 
+/**
+ * The shape of a glass, with all the ranking taken out.
+ *
+ * How many ingredients each slot takes, and whether the slot can be left out
+ * at all. Derived from `STEPS` rather than written down a second time: this is
+ * what "how many drinks are possible" is computed from, and a figure quoted on
+ * the landing page has to be one this builder can actually reach. Restating
+ * the skeleton by hand is precisely how the two would come to disagree.
+ */
+export interface SlotShape {
+  slot: string;
+  /** How many ingredients this slot takes. Two, for flavour. */
+  picks: number;
+  /** True when a profile can leave the slot out entirely. */
+  optional: boolean;
+}
+
+export function slotShape(): SlotShape[] {
+  const order: string[] = [];
+  const shape = new Map<string, SlotShape>();
+  for (const step of STEPS) {
+    const seen = shape.get(step.slot);
+    if (seen) {
+      seen.picks += 1;
+      // Only skippable if every step filling the slot can be skipped.
+      seen.optional &&= step.skip !== undefined;
+      continue;
+    }
+    order.push(step.slot);
+    shape.set(step.slot, { slot: step.slot, picks: 1, optional: step.skip !== undefined });
+  }
+  return order.map((slot) => shape.get(slot)!);
+}
+
 /* ------------------------------------------------------------------ */
 /* Build                                                               */
 /* ------------------------------------------------------------------ */

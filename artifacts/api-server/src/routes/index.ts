@@ -14,6 +14,7 @@ import safetyRoutes from "../features/safety/routes.ts";
 import elicitationRoutes from "../features/elicitation/routes.ts";
 import smoothieLogRoutes from "../features/logs/routes.ts";
 import goalRoutes from "../features/goals/routes.ts";
+import catalogRoutes from "../features/catalog/routes.ts";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(safetyRoutes);
 router.use(elicitationRoutes);
 router.use(smoothieLogRoutes);
 router.use(goalRoutes);
+router.use(catalogRoutes);
 
 export default router;
