@@ -20,6 +20,16 @@
 # DATABASE_URL at Neon or Supabase instead and this becomes a rehearsal of the
 # real deployment.
 
+# Its own project, so it does not take the development stack's containers.
+#
+# Both files described a service called `db` under the same default project
+# name, taken from the directory. Docker resolves that by name, so bringing
+# this one up *recreated* `smoothieking-db-1` — the development database
+# container — pointed at a different volume. The data survived, being in the
+# volume rather than the container, but the two split ports specifically so
+# both could run at once, and sharing a project name made that impossible.
+name: smoothieking-prod
+
 services:
   db:
     image: postgres:16-alpine
