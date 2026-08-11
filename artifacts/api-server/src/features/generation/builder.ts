@@ -34,6 +34,8 @@ export interface BuildProfile {
   tastePreference: string[];
   allergies: string[];
   dislikedIngredients: string[];
+  /** Safe weekly replacements selected from the shelf. These rank first. */
+  preferredIngredients?: string[];
   vegan?: boolean;
 }
 
@@ -201,6 +203,12 @@ function servesGoals(i: BuildableIngredient, p: BuildProfile): number {
   const main = i.benefits.includes(p.primaryGoal) ? 3 : 0;
   const sub = p.secondaryGoals.reduce((acc, g) => acc + (i.benefits.includes(g) ? 1 : 0), 0);
   return main + sub;
+}
+
+/** A selected shelf substitute is a preference, never a safety override. */
+function isPreferred(i: BuildableIngredient, p: BuildProfile): number {
+  const preferred = new Set((p.preferredIngredients ?? []).map((name) => name.toLowerCase()));
+  return preferred.has(i.name.toLowerCase()) ? 10 : 0;
 }
 
 const matchesFlavor = (i: BuildableIngredient, families: string[]): number =>
@@ -372,8 +380,15 @@ export function buildSmoothie(
     const pool = (allowed as BuildableIngredient[]).filter(
       (i) => i.slot === step.slot && !used.has(i.name),
     );
-    const ranked = rank(pool, (i) => step.score(i, profile, families));
-    const chosen = pickVaried(ranked, seed, stepIndex);
+    // A weekly “use instead” selection gets the first chance in its own slot.
+    // It is still drawn from the already safety-filtered pool above.
+    const ranked = rank(pool, (i) => step.score(i, profile, families) + isPreferred(i, profile));
+    const preferred = ranked.filter((ingredient) => isPreferred(ingredient, profile) > 0);
+    // `pickVaried` intentionally samples the whole top shortlist. Once a
+    // person has explicitly selected a replacement, that would make the
+    // selection merely *more likely*. Limit its variety to the selected safe
+    // replacements so “use instead” is a promise, not a suggestion.
+    const chosen = pickVaried(preferred.length > 0 ? preferred : ranked, seed, stepIndex);
     if (!chosen) continue;
 
     // What this ingredient actually costs, at the amount actually used.

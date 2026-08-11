@@ -116,10 +116,10 @@ export function Console() {
         <WeekPanel
           review={review}
           onChanged={() => setNonce((n) => n + 1)}
-          // Settling the week is the end of that errand. The day is what they
-          // came for, and leaving them on a finished list to find it
-          // themselves is a step we can just take.
-          onSettled={() => setTab("today")}
+          // Stay on the week that was just planned. Sending someone to Today
+          // made the first plan feel like it required a second click before
+          // they could see the ingredients they had chosen.
+          onSettled={() => setTab("week")}
         />
       )}
     </div>

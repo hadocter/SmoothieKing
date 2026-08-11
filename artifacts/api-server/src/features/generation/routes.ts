@@ -42,14 +42,18 @@ function buildProfileFrom(
 }
 
 /** Ingredients the caller has refused for the current week, if any. */
-async function skippedThisWeek(userId: number | undefined): Promise<string[]> {
-  if (userId === undefined) return [];
+async function shelfChoicesThisWeek(userId: number | undefined): Promise<{ skipped: string[]; preferred: string[] }> {
+  if (userId === undefined) return { skipped: [], preferred: [] };
 
   const period = await activeGoalPeriod(userId);
-  if (!period) return [];
+  if (!period) return { skipped: [], preferred: [] };
 
   const marks = await db
-    .select({ ingredient: shelfMarksTable.ingredient, state: shelfMarksTable.state })
+    .select({
+      ingredient: shelfMarksTable.ingredient,
+      state: shelfMarksTable.state,
+      substituteIngredient: shelfMarksTable.substituteIngredient,
+    })
     .from(shelfMarksTable)
     .where(
       and(
@@ -59,7 +63,12 @@ async function skippedThisWeek(userId: number | undefined): Promise<string[]> {
       ),
     );
 
-  return skippedFrom(marks);
+  return {
+    skipped: skippedFrom(marks),
+    preferred: marks
+      .filter((mark) => mark.state === "skipping" && typeof mark.substituteIngredient === "string")
+      .map((mark) => mark.substituteIngredient!),
+  };
 }
 
 /**
@@ -113,10 +122,11 @@ router.post("/recipes/generate", optionalAuth, async (req: AuthenticatedRequest,
    * buy should still be offered drinks that use it — the list is a plan, and
    * building around the plan would make the plan pointless.
    */
-  const skipped = await skippedThisWeek(req.user?.userId);
-  if (skipped.length > 0) {
-    buildProfile.dislikedIngredients = [...buildProfile.dislikedIngredients, ...skipped];
+  const shelfChoices = await shelfChoicesThisWeek(req.user?.userId);
+  if (shelfChoices.skipped.length > 0) {
+    buildProfile.dislikedIngredients = [...buildProfile.dislikedIngredients, ...shelfChoices.skipped];
   }
+  if (shelfChoices.preferred.length > 0) buildProfile.preferredIngredients = shelfChoices.preferred;
   const built = generateBatch(buildProfile, catalog, { preset, count, seedBase });
 
   // Named after building, and only what is worth offering — see applyNaming.

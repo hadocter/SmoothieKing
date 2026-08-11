@@ -131,7 +131,7 @@ router.get("/shelf/week", requireAuth, async (req: AuthenticatedRequest, res): P
       ),
     );
 
-  const stateOf = new Map(marks.map((m) => [m.ingredient, m.state as ShelfState]));
+  const markOf = new Map(marks.map((m) => [m.ingredient, m]));
 
   res.json({
     active: true,
@@ -143,7 +143,14 @@ router.get("/shelf/week", requireAuth, async (req: AuthenticatedRequest, res): P
     source: stored?.source ?? "computed",
     drinksPossible: shelf.drinksPossible,
     sampled: shelf.sampled,
-    items: shelf.items.map((i) => ({ ...i, state: stateOf.get(i.name) ?? null })),
+    items: shelf.items.map((i) => {
+      const mark = markOf.get(i.name);
+      return {
+        ...i,
+        state: (mark?.state as ShelfState | undefined) ?? null,
+        substitute: mark?.state === "skipping" ? mark.substituteIngredient : null,
+      };
+    }),
   });
 });
 
@@ -159,6 +166,7 @@ router.get("/shelf/week", requireAuth, async (req: AuthenticatedRequest, res): P
 router.post("/shelf/mark", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const ingredient = typeof body.ingredient === "string" ? body.ingredient.trim() : "";
+  const substitute = typeof body.substitute === "string" ? body.substitute.trim() : "";
 
   if (!ingredient) {
     res.status(400).json({ error: "Tell us which ingredient." });
@@ -177,6 +185,28 @@ router.post("/shelf/mark", requireAuth, async (req: AuthenticatedRequest, res): 
   }
 
   const weekIndex = weekIndexOf(daysElapsed(period.startedAt));
+
+  if (substitute) {
+    if (body.state !== "skipping") {
+      res.status(400).json({ error: "Choose a replacement only when skipping an ingredient." });
+      return;
+    }
+    const profile = await profileFor(userId);
+    const catalog = await loadCatalog();
+    const constraints = constraintsFrom(
+      { allergies: profile?.allergies ?? [] },
+      catalog,
+      { vegan: false },
+    );
+    const safeOptions = substitutesFor(ingredient, catalog, {
+      excludedAllergens: constraints.allergenIds,
+      excludedNames: [...constraints.excludedNames, ...(profile?.dislikedIngredients ?? [])],
+    });
+    if (!safeOptions.some((option) => option.name === substitute)) {
+      res.status(400).json({ error: "That replacement is not available for this ingredient." });
+      return;
+    }
+  }
   const where = and(
     eq(shelfMarksTable.userId, userId),
     eq(shelfMarksTable.goalPeriodId, period.id),
@@ -198,6 +228,7 @@ router.post("/shelf/mark", requireAuth, async (req: AuthenticatedRequest, res): 
       weekIndex,
       ingredient,
       state: body.state,
+      substituteIngredient: substitute || null,
     })
     .onConflictDoUpdate({
       target: [
@@ -206,10 +237,10 @@ router.post("/shelf/mark", requireAuth, async (req: AuthenticatedRequest, res): 
         shelfMarksTable.weekIndex,
         shelfMarksTable.ingredient,
       ],
-      set: { state: body.state, updatedAt: new Date() },
+      set: { state: body.state, substituteIngredient: substitute || null, updatedAt: new Date() },
     });
 
-  res.json({ ingredient, state: body.state, weekIndex });
+  res.json({ ingredient, state: body.state, substitute: substitute || null, weekIndex });
 });
 
 /**

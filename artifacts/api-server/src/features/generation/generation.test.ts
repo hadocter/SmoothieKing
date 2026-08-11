@@ -108,6 +108,20 @@ test("a dislike is honoured but is not a safety block", () => {
   assert.ok(!result.picks.map((p) => p.name).includes("Banana"));
 });
 
+test("a selected weekly substitute is preferred in its own slot", () => {
+  const result = buildSmoothie(profile({ preferredIngredients: ["Almond Milk"] }), CATALOG, { seed: 0 });
+  assert.ok(result.picks.map((pick) => pick.name).includes("Almond Milk"));
+});
+
+test("a selected substitute never overrides an allergy", () => {
+  const result = buildSmoothie(
+    profile({ preferredIngredients: ["Almond Milk"], allergies: ["Tree Nuts"] }),
+    CATALOG,
+    { seed: 0 },
+  );
+  assert.ok(!result.picks.map((pick) => pick.name).includes("Almond Milk"));
+});
+
 test("taste preference pulls flavours toward what was asked for", () => {
   const fresh = buildSmoothie(profile({ tastePreference: ["fresh"] }), CATALOG, { seed: 0 });
   const names = fresh.picks.map((p) => p.name);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Loader2, RotateCcw, Sparkles, Hand, ArrowRight, ShoppingBasket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GOAL_COLORS, GOAL_LABELS } from "@/lib/colors";
@@ -50,6 +50,10 @@ export function WeekPanel({
         },
         token,
       );
+      // The saved list usually returns quickly. Keep a short, informative
+      // reveal while the parent refreshes the complete week rather than
+      // making the new ingredients appear as an unexplained jump.
+      if (mode !== "manual") await new Promise((resolve) => window.setTimeout(resolve, 900));
       setPicking(false);
       onChanged();
       if (!review.settled) onSettled?.();
@@ -91,6 +95,7 @@ export function WeekPanel({
 
   /* -------------------------------------------------- not decided yet */
   if (!review.settled) {
+    if (saving) return <PlanningFlow />;
     return (
       <div>
         <div className="flex items-start gap-3 mb-2">
@@ -195,6 +200,54 @@ export function WeekPanel({
         <div className="mt-5">{rollover}</div>
       </details>
     </div>
+  );
+}
+
+/** A short, visible transition from choosing a plan to seeing its ingredients. */
+function PlanningFlow() {
+  const stages = [
+    ["Reading your goal", "Using this week’s preferences and the ingredients you already have."],
+    ["Balancing the glass", "Making sure every suggested drink has a liquid and protein base."],
+    ["Finding variety", "Sampling combinations so the week is not seven copies of one drink."],
+    ["Checking the shelf", "Counting the drinks the final list can actually make."],
+  ] as const;
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setStage((current) => Math.min(current + 1, stages.length - 1)), 240);
+    return () => window.clearInterval(timer);
+  }, [stages.length]);
+
+  return (
+    <section className="rounded-3xl border bg-card p-6 sm:p-8 overflow-hidden relative">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent animate-pulse" />
+      <div className="flex items-center gap-3 mb-7">
+        <span className="grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <Sparkles className="size-5 animate-pulse" />
+        </span>
+        <div>
+          <p className="font-serif text-2xl font-medium">Your week is taking shape</p>
+          <p className="text-sm text-muted-foreground">Turning one choice into a usable kitchen plan.</p>
+        </div>
+      </div>
+      <ol className="space-y-4">
+        {stages.map(([title, line], index) => {
+          const done = index < stage;
+          const active = index === stage;
+          return (
+            <li key={title} className={`flex items-start gap-3 transition-all duration-300 ${index <= stage ? "opacity-100" : "opacity-35"}`}>
+              <span className={`mt-0.5 grid size-6 place-items-center rounded-full ${done ? "bg-primary text-primary-foreground" : active ? "border-2 border-primary text-primary" : "bg-muted text-muted-foreground"}`}>
+                {done ? <Check className="size-3.5" /> : active ? <Loader2 className="size-3.5 animate-spin" /> : index + 1}
+              </span>
+              <span>
+                <span className="block text-sm font-medium">{title}</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">{line}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

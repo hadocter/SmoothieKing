@@ -32,6 +32,8 @@ export interface ShelfItem {
   /** Without this slot the skeleton makes nothing at all. */
   essential: boolean;
   state: ShelfState | null;
+  /** A safe same-slot ingredient selected for this week, if any. */
+  substitute: string | null;
 }
 
 export interface WeekShelf {
@@ -53,8 +55,12 @@ export const markIngredient = (
   ingredient: string,
   state: ShelfState | null,
   token: string | null,
-): Promise<{ ingredient: string; state: ShelfState | null }> =>
-  apiFetch("/api/shelf/mark", token, { method: "POST", body: { ingredient, state } });
+  substitute?: string | null,
+): Promise<{ ingredient: string; state: ShelfState | null; substitute: string | null }> =>
+  apiFetch("/api/shelf/mark", token, {
+    method: "POST",
+    body: { ingredient, state, ...(substitute ? { substitute } : {}) },
+  });
 
 export interface Substitute {
   name: string;

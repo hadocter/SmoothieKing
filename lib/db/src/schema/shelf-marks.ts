@@ -50,6 +50,13 @@ export const shelfMarksTable = pgTable(
      */
     state: text("state").notNull(),
 
+    /**
+     * The safe same-slot ingredient the person selected after declining this
+     * one. Kept beside the refusal so it remains a weekly preference, not a
+     * permanent profile rule.
+     */
+    substituteIngredient: text("substitute_ingredient"),
+
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

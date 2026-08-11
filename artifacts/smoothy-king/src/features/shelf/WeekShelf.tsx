@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ShoppingBasket, Check, Repeat2, Loader2 } from "lucide-react";
+import { ShoppingBasket, Check, Repeat2, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import {
   getWeekShelf,
@@ -37,6 +36,7 @@ export function WeekShelf() {
   const [pending, setPending] = useState<string | null>(null);
   const [swapFor, setSwapFor] = useState<string | null>(null);
   const [swaps, setSwaps] = useState<{ options: Substitute[]; note: string | null } | null>(null);
+  const [revealed, setRevealed] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +48,21 @@ export function WeekShelf() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!shelf?.items.length) return;
+    setRevealed(0);
+    const timer = window.setInterval(() => {
+      setRevealed((count) => {
+        if (count >= shelf.items.length) {
+          window.clearInterval(timer);
+          return count;
+        }
+        return count + 1;
+      });
+    }, 90);
+    return () => window.clearInterval(timer);
+  }, [shelf?.weekIndex, shelf?.items.length]);
+
   async function answer(item: ShelfItem, state: ShelfState) {
     // Tapping the answer already showing clears it — "I haven't decided" is a
     // state someone can go back to, and is not the same as skipping.
@@ -58,10 +73,35 @@ export function WeekShelf() {
       setShelf((s) =>
         s === null
           ? s
-          : { ...s, items: s.items.map((i) => (i.name === item.name ? { ...i, state: next } : i)) },
+          : {
+              ...s,
+              items: s.items.map((i) =>
+                i.name === item.name ? { ...i, state: next, substitute: null } : i,
+              ),
+            },
       );
       if (next === "skipping") void openSwaps(item.name);
       else if (swapFor === item.name) setSwapFor(null);
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function chooseSwap(item: ShelfItem, substitute: string | null) {
+    setPending(item.name);
+    try {
+      const saved = await markIngredient(item.name, "skipping", token, substitute);
+      setShelf((s) =>
+        s === null
+          ? s
+          : {
+              ...s,
+              items: s.items.map((i) =>
+                i.name === item.name ? { ...i, state: "skipping", substitute: saved.substitute } : i,
+              ),
+            },
+      );
+      setSwapFor(null);
     } finally {
       setPending(null);
     }
@@ -80,9 +120,25 @@ export function WeekShelf() {
 
   if (shelf === null) {
     return (
-      <div className="space-y-3">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-40 rounded-2xl" />
+      <div className="rounded-3xl border bg-card p-6 overflow-hidden relative">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent animate-pulse" />
+        <div className="flex items-center gap-3 mb-5">
+          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <Sparkles className="size-5 animate-pulse" />
+          </span>
+          <div>
+            <p className="font-serif text-xl font-medium">Building this week&rsquo;s shelf</p>
+            <p className="text-sm text-muted-foreground">Balancing the drink structure around your goal…</p>
+          </div>
+        </div>
+        <div className="space-y-2.5">
+          {["Choosing a base and protein", "Adding flavour variety", "Checking the list can make real drinks"].map((line, index) => (
+            <div key={line} className="flex items-center gap-2 text-sm text-muted-foreground" style={{ animationDelay: `${index * 160}ms` }}>
+              <Loader2 className="size-3.5 animate-spin text-primary" />
+              {line}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -133,8 +189,12 @@ export function WeekShelf() {
       </p>
 
       <ul className="space-y-2">
-        {shelf.items.map((item) => (
-          <li key={item.name}>
+        {shelf.items.map((item, index) => (
+          <li
+            key={item.name}
+            className="transition-all duration-500 ease-out"
+            style={{ opacity: index < revealed ? 1 : 0, transform: index < revealed ? "translateY(0)" : "translateY(12px)" }}
+          >
             <div
               className={`rounded-2xl border p-4 transition-colors ${
                 item.state === "skipping"
@@ -157,6 +217,11 @@ export function WeekShelf() {
                     {" · in "}
                     {item.usedIn} of this week&rsquo;s builds
                   </p>
+                  {item.substitute && (
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      Using {item.substitute} instead this week
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex w-full gap-1.5 shrink-0 self-start sm:w-auto sm:self-auto">
@@ -203,19 +268,30 @@ export function WeekShelf() {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {swaps.options.map((o) => (
-                          <span
+                          <button
                             key={o.name}
-                            className="px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary border border-primary/20"
+                            type="button"
+                            disabled={pending === item.name}
+                            onClick={() => void chooseSwap(item, o.name)}
+                            className="px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
                           >
                             {o.name}
                             {o.sharedFlavors.length > 0 && (
                               <span className="text-xs opacity-70"> · {o.sharedFlavors[0]}</span>
                             )}
-                          </span>
+                          </button>
                         ))}
+                        <button
+                          type="button"
+                          disabled={pending === item.name}
+                          onClick={() => void chooseSwap(item, null)}
+                          className="px-3 py-1.5 rounded-full text-sm border border-border text-muted-foreground hover:border-primary/50 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                        >
+                          <X className="size-3.5" /> Skip without a substitute
+                        </button>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
-                        We&rsquo;ll reach for these while {item.name.toLowerCase()} is off the list.
+                        Choose one to prioritise it in this week&rsquo;s builds, or skip the ingredient without a replacement.
                       </p>
                     </>
                   )}
