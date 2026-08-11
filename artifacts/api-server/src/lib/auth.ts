@@ -26,7 +26,17 @@ export async function verifyPassword(password: string, stored: string): Promise<
 // Simple JWT-like signed token using HMAC (no jsonwebtoken dependency needed)
 import { createHmac } from "crypto";
 
-const JWT_SECRET = process.env["JWT_SECRET"] || "smoothy-king-dev-secret-change-in-production";
+const configuredJwtSecret = process.env["JWT_SECRET"];
+
+// A convenient local default must never become a production credential. The
+// source is public, so accepting it in a deployed process would let anybody
+// mint a token for any user. Keep local setup friction-free, but stop before
+// the server starts when production has not supplied its own secret.
+if (process.env["NODE_ENV"] === "production" && !configuredJwtSecret) {
+  throw new Error("JWT_SECRET must be set when NODE_ENV=production");
+}
+
+const JWT_SECRET = configuredJwtSecret || "smoothy-king-dev-secret-change-in-production";
 const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface TokenPayload {

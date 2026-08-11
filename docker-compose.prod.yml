@@ -62,6 +62,9 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      # Required interpolation makes a local production rehearsal fail before
+      # a publicly-known development signing key could ever reach the app.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set for production}
     ports:
       - "8080:8080"
     depends_on:

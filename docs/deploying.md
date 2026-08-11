@@ -64,12 +64,16 @@ The image is one container that needs one environment variable to be useful:
 | Variable | |
 |---|---|
 | `DATABASE_URL` | required — Postgres connection string |
+| `JWT_SECRET` | required in production — a long random token-signing secret, held only in the host's secret store |
 | `PORT` | usually injected by the host; defaults to 8080 |
 | `GROQ_API_KEY` | optional. Without it, suggestions fall back to keyword matching and say so on screen |
 | `STATIC_DIR` | set by the image; unset it to serve the API alone |
 
-Never bake `GROQ_API_KEY` into the image or commit it — use the host's secret
-mechanism. `.env` is gitignored.
+Never bake `JWT_SECRET` or `GROQ_API_KEY` into the image or commit either one
+— use the host's secret mechanism. Generate the JWT value with, for example,
+`openssl rand -base64 48`. The app deliberately refuses to start in production
+without it; its development fallback is public source code, not a credential.
+`.env` is gitignored.
 
 ### Free hosting that cuts off rather than bills
 
