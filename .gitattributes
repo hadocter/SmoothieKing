@@ -1,0 +1,3 @@
+# SingleFile preserves source whitespace verbatim. It is a supplied static
+# presentation artifact, not repository-authored source formatting.
+presentation/presentation.html -whitespace

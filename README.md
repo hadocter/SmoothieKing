@@ -2,7 +2,7 @@
 
 **A goal-aware smoothie builder for busy people who have a nutrition goal or constraint but do not know what smoothie to make. It turns a short preference check into a safe, repeatable drink plan and a weekly ingredient list.**
 
-[Repository](https://github.com/hadocter/SmoothieKing) · [Deploy guide](#deploy-to-render--neon) · [Demo script](docs/demo-day.md) · [5-minute demo deck](docs/demo-day/Smoothy-King-Demo-Day.pptx) · [Architecture notes](docs/README.md)
+[Repository](https://github.com/hadocter/SmoothieKing) · [Deploy guide](#deploy-to-render--neon) · [Demo script](docs/demo-day.md) · [5-minute demo deck](presentation/Smoothy-King-Demo-Day.pptx) · [Demo Day materials](presentation/) · [Architecture notes](docs/README.md)
 
 > **Live URL:** create the Render service below, then paste its `https://…onrender.com` URL here before submitting. We deliberately do not invent a deployment URL or user count.
 
@@ -127,6 +127,8 @@ The live demo should show one complete loop, not every screen:
 5. Mark an ingredient unavailable, select a safe substitute, and show the rebuilt plan.
 
 Use [docs/demo-day.md](docs/demo-day.md) for the presenter run-of-show, direct Q&A answers, and the slide deck location.
+The submission-ready deck, interactive presentation reference, emergency video,
+and concise five-minute flow are bundled in [presentation/](presentation/).
 
 ## How the team used AI to build it (honest disclosure)
 
@@ -145,6 +147,7 @@ The product’s in-app AI boundary is intentionally tighter than its development
 | `lib/db/` | PostgreSQL/Drizzle schema and seed data. |
 | `lib/api-*` | API contract, Zod validation, and generated client helpers. |
 | `docs/` | Product rules, deployment notes, AI disclosure, and Demo Day materials. |
+| `presentation/` | Demo Day deck, interactive presentation reference, backup video, and five-minute flow. |
 | `Dockerfile`, `render.yaml` | Production container and repeatable Render deployment configuration. |
 
 ## Verification
